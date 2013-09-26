@@ -2,6 +2,7 @@ package gop
 
 import (
     "github.com/gorilla/mux"
+    "github.com/gorilla/context"
     "github.com/jbert/timber"
 
     "fmt"
@@ -187,7 +188,9 @@ func (a *App) getReq(r *http.Request) *Req {
 }
 
 func (g *Req) finished() {
-    reqDuration := time.Since(g.startTime)
+    context.Clear(g.r)      // Cleanup  gorilla stash
+
+    reqDuration := time.Since(g.startTime)    
     slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
     if reqDuration.Seconds() > float64(slowReqSecs) {
         g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
