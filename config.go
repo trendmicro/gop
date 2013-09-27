@@ -33,13 +33,14 @@ func (a *App) loadAppConfigFile() {
         panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
     }
 
-    a.Cfg = make(map[string]Section)
+    theCfg := make(Config)
     for section, m := range cfg {
-        a.Cfg[section] = make(map[string]string)
+        theCfg[section] = make(map[string]string)
         for k, v := range m {
-            a.Cfg[section][k] = v
+            theCfg[section][k] = v
         }
     }
+    a.Cfg = &theCfg
 }
 
 func (cfg *Config) Get(sName, k string, def string) (string, bool) {

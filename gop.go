@@ -12,12 +12,17 @@ import (
     "strings"
 )
 
+// Stuff we include in both App and Req, for convenience
+type common struct {
+    timber.Logger
+    Cfg             *Config
+    Stats           StatsdClient
+}
+
 // Represents a managed gop app. Returned by init.
 // Embeds logging, provides .Cfg for configuration access.
 type App struct {
-    timber.Logger
-    Cfg             Config
-    Stats           StatsdClient
+    common
 
     AppName         string
     ProjectName     string
@@ -39,9 +44,7 @@ type wantReq struct {
 // Per request struct. has convenience references to functionality
 // in the app singleton. Passed into the request handler.
 type Req struct {
-    timber.Logger           // So we can call logging methods directly
-    Cfg             *Config
-    Stats           StatsdClient
+    common
 
     id              int
     startTime       time.Time
@@ -88,9 +91,11 @@ func (a *App) requestMaker() {
         select {
             case wantReq := <- a.wantReq: {
                 req := Req{
-                    Logger:     a.Logger,
-                    Cfg:        &a.Cfg,
-                    Stats:      a.Stats,
+                    common: common{
+                        Logger:     a.Logger,
+                        Cfg:        a.Cfg,
+                        Stats:      a.Stats,
+                    },
 
                     id:         nextReqId,
                     app:        a,
