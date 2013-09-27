@@ -2,6 +2,7 @@ package gop
 
 import (
     "github.com/rcrowley/goagain"
+    "github.com/jbert/timber"
     "net"
     "time"
 )
@@ -65,7 +66,11 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
         }
     }
 
-    a.Info("Graceful restart - tick still have %d pending reqs", a.currentReqs)
-    // Wait for graceful exit...
+    a.Info("Graceful restart - with %d pending reqs", a.currentReqs)
+
+    // Start a log flush
+    timber.Close()
+    // This sucks. Wait for logs to flush.
+    time.Sleep(time.Second * 2)
 }
 
