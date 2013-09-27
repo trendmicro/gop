@@ -26,7 +26,7 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 			a.Fatalln(err)
 		}
     } else {
-        // Parent! Familicide
+        // We have a parent, and we're now listening. Tell them to shut down.
         a.Info("Child taking over from graceful parent. Killing ppid %d\n", ppid)
 		if err := goagain.KillParent(ppid); nil != err {
 			a.Fatalln(err)
@@ -42,6 +42,9 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
     }
 
     a.Error("Signal received - starting graceful restart")
+    // We're the parent. Our child has taken over the listening duties. We can close
+    // off our listener and drain pending requests.
+    l.Close()
     waitSecs, _ := a.Cfg.GetInt("gop", "graceful_wait_secs", 60)
     timeoutChan := time.After(time.Second * time.Duration(waitSecs))
 
