@@ -66,6 +66,8 @@ func Init(projectName, appName string) *App {
         getReqs:        make(chan chan *Req),
     }
 
+    runtime.GOMAXPROCS(4 * runtime.NumCPU())
+
     app.loadAppConfigFile()
 
     app.initLogging()
