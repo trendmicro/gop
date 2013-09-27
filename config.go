@@ -76,3 +76,14 @@ func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
     }
     panic(fmt.Sprintf("Bad boolean config key %s: %s", k, v))
 }
+func (cfg *Config) GetFloat32(sName, k string, def float32) (float32, bool) {
+    v, found := cfg.Get(sName, k, "")
+    if !found {
+        return def, false
+    }
+    r, err := strconv.ParseFloat(v, 32)
+    if err == nil {
+        return float32(r), true
+    }
+    panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
+}

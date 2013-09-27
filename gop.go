@@ -3,7 +3,6 @@ package gop
 import (
     "github.com/gorilla/mux"
     "github.com/jbert/timber"
-    "github.com/cactus/go-statsd-client/statsd"
 
     "fmt"
     "net"
@@ -18,7 +17,7 @@ import (
 type App struct {
     timber.Logger
     Cfg             Config
-    Stats           *statsd.Client
+    Stats           StatsdClient
 
     AppName         string
     ProjectName     string
@@ -42,7 +41,7 @@ type wantReq struct {
 type Req struct {
     timber.Logger           // So we can call logging methods directly
     Cfg             *Config
-    Stats           *statsd.Client
+    Stats           StatsdClient
 
     id              int
     startTime       time.Time
@@ -166,19 +165,6 @@ func (a *App) initLogging() {
     l := timber.NewTimber()
     l.AddLogger(configLogger)
     a.Logger = l
-}
-
-func (a *App) initStatsd() {
-    statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
-    statsdPrefix := a.AppName + "." + a.ProjectName
-    client, err := statsd.New(statsdHostport, statsdPrefix)
-    if err != nil {
-        // App will probably fall over due to nil client. That's OK.
-        // We *could* panic below, but lets try and continue at least
-        a.Error("Failed to create statsd client: " + err.Error())
-        return
-    }
-    a.Stats = client
 }
 
 func (a *App) watchdog() {
