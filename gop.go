@@ -3,6 +3,7 @@ package gop
 import (
     "github.com/gorilla/mux"
     "github.com/jbert/timber"
+    "github.com/cactus/go-statsd-client/statsd"
 
     "fmt"
     "net"
@@ -16,9 +17,11 @@ import (
 // Embeds logging, provides .Cfg for configuration access.
 type App struct {
     timber.Logger
+    Cfg             Config
+    Stats           *statsd.Client
+
     AppName         string
     ProjectName     string
-    Cfg             Config
     GorillaRouter   *mux.Router
     listener        net.Listener
     wantReq         chan *wantReq
@@ -39,6 +42,8 @@ type wantReq struct {
 type Req struct {
     timber.Logger           // So we can call logging methods directly
     Cfg             *Config
+    Stats           *statsd.Client
+
     id              int
     startTime       time.Time
     app             *App
@@ -63,6 +68,8 @@ func Init(projectName, appName string) *App {
 
     app.initLogging()
 
+    app.initStatsd()
+
     app.goAgainSetup()
 
     app.registerGopHandlers()
@@ -82,9 +89,11 @@ func (a *App) requestMaker() {
         select {
             case wantReq := <- a.wantReq: {
                 req := Req{
-                    id:         nextReqId,
                     Logger:     a.Logger,
                     Cfg:        &a.Cfg,
+                    Stats:      a.Stats,
+
+                    id:         nextReqId,
                     app:        a,
                     startTime:  time.Now(),
                     r:          wantReq.r,
@@ -157,6 +166,19 @@ func (a *App) initLogging() {
     l := timber.NewTimber()
     l.AddLogger(configLogger)
     a.Logger = l
+}
+
+func (a *App) initStatsd() {
+    statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
+    statsdPrefix := a.AppName + "." + a.ProjectName
+    client, err := statsd.New(statsdHostport, statsdPrefix)
+    if err != nil {
+        // App will probably fall over due to nil client. That's OK.
+        // We *could* panic below, but lets try and continue at least
+        a.Error("Failed to create statsd client: " + err.Error())
+        return
+    }
+    a.Stats = client
 }
 
 func (a *App) watchdog() {
