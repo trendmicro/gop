@@ -143,6 +143,8 @@ func (a *App) requestMaker() {
                 }
                 openReqs[req.id] = &req
                 nextReqId++
+                a.Stats.Inc("http_reqs", 1)
+                a.Stats.Inc("current_http_reqs", 1)
                 a.totalReqs++
                 a.currentReqs++
                 wantReq.reply <- &req
@@ -152,6 +154,11 @@ func (a *App) requestMaker() {
                 if !found {
                     a.Error("BUG! Unknown request id [%d] being retired")
                 } else {
+                    a.Stats.Dec("current_http_reqs", 1)
+// We don't yet have access to status codes. TODO: wrap response in handler so
+// we can capture them
+//                    statsKey := fmt.Sprintf("http_status.%d", doneReq.r.StatusCode)
+//                    a.Stats.Inc(statsKey, 1)
                     doneReq.finished()
                     a.currentReqs--
                     delete (openReqs, doneReq.id)

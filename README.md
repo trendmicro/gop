@@ -77,6 +77,7 @@ Test ip6 access behind nginx
 === Stats
 
 Decorate with specific GOP statsd measure
+[current and total http reqs in place, TODO: status codes]
 
 Add more detailed introspection:
 
@@ -111,3 +112,11 @@ Additional TODO bugs:
 * Track request duration (and output in request-status)
 
 * Don't allow graceful restart within N secs of process start (and/or if there is already a graceful runnning in another proc)
+
+* change GOP handler to take two args - gop.Request and gop.Response (as per http), which embed the http versions
+and override as needed (e.g. setting status code). Once we've overridden to see status codes, add in commented-out statsd
+reporting on status codes.
+
+* add stdout-logging override for development
+
+* add 'sent statsd op X' debug logging for development
