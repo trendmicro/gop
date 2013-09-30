@@ -31,19 +31,19 @@ func (s *StatsdClient) Dec(stat string, value int64) {
     _ = s.client.Dec(stat, value, s.rate)
 }
 
-func (s *StatsdClient) Gauge(stat string, value int64, rate float32) {
+func (s *StatsdClient) Gauge(stat string, value int64) {
     _ = s.client.Gauge(stat, value, s.rate)
 }
 
-func (s *StatsdClient) GaugeDelta(stat string, value int64, rate float32) {
+func (s *StatsdClient) GaugeDelta(stat string, value int64) {
     _ = s.client.GaugeDelta(stat, value, s.rate)
 }
 
-func (s *StatsdClient) Inc(stat string, value int64, rate float32) {
+func (s *StatsdClient) Inc(stat string, value int64) {
     _ = s.client.Inc(stat, value, s.rate)
 }
 
-func (s *StatsdClient) Timing(stat string, delta int64, rate float32) {
+func (s *StatsdClient) Timing(stat string, delta int64) {
     _ = s.client.Timing(stat, delta, s.rate)
 }
 
