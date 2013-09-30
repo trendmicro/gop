@@ -10,6 +10,10 @@ import (
     "runtime"
     "net/http"
     "strings"
+
+    "os/user"
+    "syscall"
+    "strconv"
 )
 
 // Stuff we include in both App and Req, for convenience
@@ -68,6 +72,8 @@ func Init(projectName, appName string) *App {
 
     app.loadAppConfigFile()
 
+    app.setUserAndGroup()
+
     app.initLogging()
 
     maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4 * runtime.NumCPU())
@@ -85,6 +91,35 @@ func Init(projectName, appName string) *App {
     go app.requestMaker()
 
     return app
+}
+
+func (a *App) setUserAndGroup() {
+    // We do not have logging set up yet. We just panic() on error.
+
+    desiredUserName, _ := a.Cfg.Get("gop", "user", a.AppName)
+    desiredUser, err := user.Lookup(desiredUserName)
+    // NickG would prefer we die screaming instead of running on as root
+    if err != nil {
+        panic(fmt.Sprintf("Can't find user [%s] - please set config correctly and/or create user", desiredUserName))
+    }
+
+    currentUser, err := user.Current()
+    if err != nil {
+        panic(fmt.Sprintf("Can't find current user: %s", err.Error()))
+    }
+    if currentUser.Uid != desiredUser.Uid {
+        numericId, err := strconv.Atoi(desiredUser.Uid)
+        if err != nil {
+            panic(fmt.Sprintf("Can't interpret [%s] as a numeric user id [following lookup of usernmae %s]", desiredUser.Uid, desiredUserName))
+        }
+        err = syscall.Setuid(numericId)
+        if err != nil {
+            panic(fmt.Sprintf("Can't setuid to [%s]: %s", desiredUser.Uid, err.Error()))
+        }
+    }
+
+// Can't log at this stage :-/
+//    a.Info("Running as user %s (%d)", desiredUserName, desiredUser.Uid)
 }
 
 // Hands out 'request' objects

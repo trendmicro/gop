@@ -64,6 +64,8 @@ Detail log setting by some mixture of package/func/file/line
 
 Set UID and GUID from config at startup (default to project name)
 
+[partially done. user=<username> honoured in gop config]
+
 === Remote endpoint
 
 Extract X-Forwarded-For and X-Forwarded-Proto info from nginx. Expose to app. Expose in request-status.
@@ -107,3 +109,5 @@ Additional TODO bugs:
 * Track mean cpu-secs/request figure (and output in TICK and request-status)
 
 * Track request duration (and output in request-status)
+
+* Don't allow graceful restart within N secs of process start (and/or if there is already a graceful runnning in another proc)
