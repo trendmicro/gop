@@ -6,6 +6,7 @@ import (
     "net/http"
     "fmt"
     "time"
+    "os"
 )
 
 var decoder = schema.NewDecoder()       // Single-instance so struct info cached
@@ -36,8 +37,10 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
 func handleRequestStatus(g *Req, w http.ResponseWriter, r *http.Request) {
     reqChan := make(chan *Req)
     g.app.getReqs <- reqChan
+    appDuration := time.Since(g.app.startTime).Seconds()
+    fmt.Fprintf(w, "%s - %s PID %d up for %.3fs (%s)\n\n", g.app.ProjectName, g.app.AppName, os.Getpid(), appDuration, g.app.startTime)
     for req := range reqChan {
-        reqDuration := float64(time.Since(req.startTime).Nanoseconds()) / 1000000000
+        reqDuration := time.Since(req.startTime).Seconds()
         fmt.Fprintf(w, "%d: %.3f\t%s\t%s\n", req.id, reqDuration, req.r.Method, req.r.URL.String())
     }
 }

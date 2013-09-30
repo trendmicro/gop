@@ -35,6 +35,7 @@ type App struct {
     wantReq         chan *wantReq
     doneReq         chan *Req
     getReqs         chan chan *Req
+    startTime       time.Time
     currentReqs     int
     totalReqs       int
 }
@@ -68,6 +69,7 @@ func Init(projectName, appName string) *App {
         wantReq:        make(chan *wantReq),
         doneReq:        make(chan *Req),
         getReqs:        make(chan chan *Req),
+        startTime:      time.Now(),
     }
 
     app.loadAppConfigFile()
