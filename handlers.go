@@ -60,7 +60,7 @@ func handleTest(g *Req, w http.ResponseWriter, r *http.Request) {
         buf[i] = 1
     }
     time.Sleep(time.Second * time.Duration(args.Secs))
-    fmt.Fprintf(w, "Slow request took %d secs\n", args.Secs)
+    fmt.Fprintf(w, "Slow request took additional %d secs and allocated additional %d KB\n", args.Secs, args.Kbytes)
 }
 
 func (a *App) registerGopHandlers() {
