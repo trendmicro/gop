@@ -37,7 +37,8 @@ func handleRequestStatus(g *Req, w http.ResponseWriter, r *http.Request) {
     reqChan := make(chan *Req)
     g.app.getReqs <- reqChan
     for req := range reqChan {
-        fmt.Fprintf(w, "%d:\t%s\t%s\n", req.id, req.r.Method, req.r.URL.String())
+        reqDuration := float64(time.Since(req.startTime).Nanoseconds()) / 1000000000
+        fmt.Fprintf(w, "%d: %.3f\t%s\t%s\n", req.id, reqDuration, req.r.Method, req.r.URL.String())
     }
 }
 

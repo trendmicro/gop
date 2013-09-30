@@ -109,7 +109,7 @@ Additional TODO bugs:
 
 * Track mean cpu-secs/request figure (and output in TICK and request-status)
 
-* Track request duration (and output in request-status)
+* ~~(DONE) Track request duration (and output in request-status)~~
 
 * Don't allow graceful restart within N secs of process start (and/or if there is already a graceful runnning in another proc)
 
