@@ -186,8 +186,13 @@ func (a *App) getReq(r *http.Request) *Req {
 }
 
 func (g *Req) finished() {
-    duration := time.Now().Sub(g.startTime)
-    g.Info("Request took %s", duration)
+    reqDuration := time.Since(g.startTime)
+    slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
+    if reqDuration.Seconds() > float64(slowReqSecs) {
+        g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
+    } else {
+        g.Info("Request took %s", reqDuration)
+    }
 }
 
 func (a *App) initLogging() {

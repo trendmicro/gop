@@ -97,7 +97,7 @@ Add more detailed introspection:
 
 ### Abnormal request tracking
 
-- log slow requests
+- ~~(DONE) log slow requests~~
 
 - log failing requests
 
@@ -115,8 +115,8 @@ Additional TODO bugs:
 
 * change GOP handler to take two args - gop.Request and gop.Response (as per http), which embed the http versions
 and override as needed (e.g. setting status code). Once we've overridden to see status codes, add in commented-out statsd
-reporting on status codes.
+reporting on status codes. And add "log on 5xx".
 
 * ~~(DONE) add stdout-logging override for development~~
 
-* add 'sent statsd op X' debug logging for development
+* ~~(DONE) add 'sent statsd op X' debug logging for development~~
