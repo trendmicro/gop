@@ -46,7 +46,7 @@ Reconcile graceful restart with a process manager
 
 ### Harakiri and resource management
 
-Restart after handling X requests or Y seconds
+~~ (DONE) Restart after handling X requests or Y seconds~~
 
 Track number of fds in use (write out in the TICK messages) and restart when limit hit
 

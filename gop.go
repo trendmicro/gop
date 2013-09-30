@@ -249,9 +249,17 @@ func (a *App) watchdog() {
         sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
         sysMemBytes := int64(getSysMemBytesUsed())  // Only supports 2^63 byte systems
         a.Info("TICK: %d bytes %d current %d total", getSysMemBytesUsed, a.currentReqs, a.totalReqs)
+
         if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
             a.Error("MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
             a.StartGracefulRestart("Memory limit reached")
+        }
+
+        restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
+        appRunTime := time.Since(a.startTime).Seconds()
+        if restartAfterSecs > 0 && appRunTime > float64(restartAfterSecs) {
+            a.Error("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
+            a.StartGracefulRestart("Run time limit reached")
         }
         <- ticker
     }
