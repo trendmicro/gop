@@ -66,11 +66,13 @@ func Init(projectName, appName string) *App {
         getReqs:        make(chan chan *Req),
     }
 
-    runtime.GOMAXPROCS(4 * runtime.NumCPU())
-
     app.loadAppConfigFile()
 
     app.initLogging()
+
+    maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4 * runtime.NumCPU())
+    app.Debug("Seting maxprocs to %d\n", maxProcs)
+    runtime.GOMAXPROCS(maxProcs)
 
     app.initStatsd()
 
