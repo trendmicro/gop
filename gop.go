@@ -189,7 +189,6 @@ func (g *Req) finished() {
 }
 
 func (a *App) initLogging() {
-    
     defaultLogDir, _ := a.Cfg.Get("gop", "log_dir", "/var/log")
     defaultLogFname := defaultLogDir + "/" + a.ProjectName + "/" + a.AppName + ".log"
     logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
@@ -212,6 +211,13 @@ func (a *App) initLogging() {
             break
         }
     }
+
+    // Hack all logging to stdout for dev
+    forceStdout, _:= a.Cfg.GetBool("gop", "stdout_only_logging", false)
+    if forceStdout {
+        configLogger.LogWriter = new(timber.ConsoleWriter)
+    }
+    
 
     l := timber.NewTimber()
     l.AddLogger(configLogger)
