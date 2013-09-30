@@ -38,6 +38,7 @@ type App struct {
     startTime       time.Time
     currentReqs     int
     totalReqs       int
+    doingGraceful   bool
 }
 
 // Used for RPC to get a new request
@@ -192,6 +193,13 @@ func (g *Req) finished() {
         g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
     } else {
         g.Info("Request took %s", reqDuration)
+    }
+
+    // Tidy up request finalistion (requestMaker, req.finish() method, app.requestFinished())
+    restartReqs, _ := g.Cfg.GetInt("gop", "max_requests", 0)
+    if restartReqs > 0 && g.app.totalReqs > restartReqs {
+        g.Error("Graceful restart after max_requests: %d", restartReqs)
+        g.app.StartGracefulRestart("Max requests reached")
     }
 }
 

@@ -10,6 +10,11 @@ import (
 )
 
 func (a *App) StartGracefulRestart(reason string) {
+    if a.doingGraceful {
+        a.Debug("Ignoring graceful [%s] - already in graceful", reason)
+        return
+    }
+
     // Caller should ERROR the reason
     a.Info("Starting triggered graceful restart: %s", reason)
     myPid := os.Getpid()
@@ -18,8 +23,9 @@ func (a *App) StartGracefulRestart(reason string) {
         a.Error("Can't FindProcess myself - can't graceful restart. This probably won't end well: %s", err.Error())
         return
     }
-    a.Info("Sending SIGQUIT to %d", myPid)
-    me.Signal(syscall.SIGQUIT)
+    a.Info("Sending SIGUSR2 to %d", myPid)
+    a.doingGraceful = true
+    me.Signal(syscall.SIGUSR2)
 }
 
 func (a *App) goAgainSetup() {
@@ -56,7 +62,8 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 		a.Fatalln(err)
     }
 
-    a.Error("Signal received - starting graceful restart")
+    a.Error("Signal received - starting exit or restart")
+
     // We're the parent. Our child has taken over the listening duties. We can close
     // off our listener and drain pending requests.
     l.Close()
