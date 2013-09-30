@@ -14,6 +14,7 @@ type Config map[string]Section
 type Section map[string]string
 
 func (a *App) loadAppConfigFile() {
+    // We do not have logging set up yet. We just panic() on error.
 
     rootEnvName := strings.ToUpper(a.ProjectName) + "_CFG_ROOT"
     configRoot := os.Getenv(rootEnvName)
