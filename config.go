@@ -66,6 +66,17 @@ func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
     }
     panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
 }
+func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
+    v, found := cfg.Get(sName, k, "")
+    if !found {
+        return def, false
+    }
+    r, err := strconv.ParseInt(v, 10, 64)
+    if err == nil {
+        return r, true
+    }
+    panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
+}
 func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
     v, found := cfg.Get(sName, k, "")
     if !found {

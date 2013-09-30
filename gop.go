@@ -181,8 +181,13 @@ func (a *App) watchdog() {
     ticker := time.Tick(time.Second * time.Duration(repeat))
 
     for {
-        sysMem := getMemUse()
-        a.Info("TICK: %d bytes %d current %d total", sysMem, a.currentReqs, a.totalReqs)
+        sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
+        sysMemBytes := int64(getSysMemBytesUsed())  // Only supports 2^63 byte systems
+        a.Info("TICK: %d bytes %d current %d total", getSysMemBytesUsed, a.currentReqs, a.totalReqs)
+        if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
+            a.Error("MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
+            a.StartGracefulRestart("Memory limit reached")
+        }
         <- ticker
     }
 }
@@ -219,8 +224,7 @@ func (a *App) Serve(l net.Listener) {
     http.Serve(l, a.GorillaRouter)
 }
 
-
-func getMemUse() uint64 {
+func getSysMemBytesUsed() uint64 {
     var memStats runtime.MemStats
     runtime.ReadMemStats(&memStats)
     // There's lots of stuff in here.

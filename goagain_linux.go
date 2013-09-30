@@ -4,8 +4,23 @@ import (
     "github.com/rcrowley/goagain"
     "github.com/jbert/timber"
     "net"
+    "os"
     "time"
+    "syscall"
 )
+
+func (a *App) StartGracefulRestart(reason string) {
+    // Caller should ERROR the reason
+    a.Info("Starting triggered graceful restart: %s", reason)
+    myPid := os.Getpid()
+    me, err := os.FindProcess(myPid)
+    if err != nil {
+        a.Error("Can't FindProcess myself - can't graceful restart. This probably won't end well: %s", err.Error())
+        return
+    }
+    a.Info("Sending SIGQUIT to %d", myPid)
+    me.Signal(syscall.SIGQUIT)
+}
 
 func (a *App) goAgainSetup() {
     goagain.OnSIGUSR1 = func(l net.Listener) error {
