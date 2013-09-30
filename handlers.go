@@ -22,8 +22,8 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
             handleRequestStatus(g, w, r)
             return
         }
-        case "slow": {
-            handleSlow(g, w, r)
+        case "test": {
+            handleTest(g, w, r)
             return
         }
         default: {
@@ -41,18 +41,24 @@ func handleRequestStatus(g *Req, w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func handleSlow(g *Req, w http.ResponseWriter, r *http.Request) {
-    type slow struct {
+func handleTest(g *Req, w http.ResponseWriter, r *http.Request) {
+    type details struct {
+        Kbytes int `schema:"kbytes"`
         Secs int `schema:"secs"`
     }
-    args := slow{}
+    args := details{}
     r.ParseForm()
     err := decoder.Decode(&args, r.Form)
     if err != nil {
         http.Error(w, "Failed to decode params: " + err.Error(), http.StatusInternalServerError)
         return
     }
-    g.Debug("Deliberate slow req - duration %d secs", args.Secs)
+    g.Debug("Test req - taking %d secs, %d KB", args.Secs, args.Kbytes)
+    buf := make([]byte, args.Kbytes * 1024)
+    // Touch/do something with the mem to ensure it's actually allocated
+    for i := range buf {
+        buf[i] = 1
+    }
     time.Sleep(time.Second * time.Duration(args.Secs))
     fmt.Fprintf(w, "Slow request took %d secs\n", args.Secs)
 }
