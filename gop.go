@@ -200,6 +200,8 @@ func (a *App) initLogging() {
     defaultLogFname := defaultLogDir + "/" + a.ProjectName + "/" + a.AppName + ".log"
     logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
 
+    logPattern, _ := a.Cfg.Get("gop", "log_pattern", "[%D %T] [%L] %S %M")
+
     writer, err := timber.NewFileWriter(logFname)
     if err != nil {
         panic(fmt.Sprintf("Can't open log file: %s", err))
@@ -207,7 +209,7 @@ func (a *App) initLogging() {
     configLogger := timber.ConfigLogger{
         LogWriter:  writer,
         Level:      timber.INFO,
-        Formatter:  timber.NewPatFormatter("[%D %T] [%L] %S %M"),
+        Formatter:  timber.NewPatFormatter(logPattern),
     }
 
     logLevelStr, _ := a.Cfg.Get("gop", "log_level", "INFO")
