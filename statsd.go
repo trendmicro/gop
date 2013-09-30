@@ -7,6 +7,7 @@ import (
 type StatsdClient struct {
     client *statsd.Client
     rate float32
+    app *App
 }
 
 func (a *App) initStatsd() {
@@ -24,26 +25,32 @@ func (a *App) initStatsd() {
     a.Stats = StatsdClient{
         client: client,
         rate: rate,
+        app: a,
     }
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {
+    s.app.Debug("STATSD DEC %s %d", stat, value)
     _ = s.client.Dec(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Gauge(stat string, value int64) {
+    s.app.Debug("STATSD GAUGE %s %d", stat, value)
     _ = s.client.Gauge(stat, value, s.rate)
 }
 
 func (s *StatsdClient) GaugeDelta(stat string, value int64) {
+    s.app.Debug("STATSD GAUGEDELTA %s %d", stat, value)
     _ = s.client.GaugeDelta(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Inc(stat string, value int64) {
+    s.app.Debug("STATSD INC %s %d", stat, value)
     _ = s.client.Inc(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Timing(stat string, delta int64) {
+    s.app.Debug("STATSD TIMING %s %d", stat, delta)
     _ = s.client.Timing(stat, delta, s.rate)
 }
 
