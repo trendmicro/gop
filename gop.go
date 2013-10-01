@@ -159,10 +159,6 @@ func (a *App) requestMaker() {
                     a.Error("BUG! Unknown request id [%d] being retired")
                 } else {
                     a.Stats.Dec("current_http_reqs", 1)
-// We don't yet have access to status codes. TODO: wrap response in handler so
-// we can capture them
-//                    statsKey := fmt.Sprintf("http_status.%d", doneReq.r.StatusCode)
-//                    a.Stats.Inc(statsKey, 1)
                     doneReq.finished()
                     a.currentReqs--
                     delete (openReqs, doneReq.id)
@@ -269,6 +265,37 @@ func (a *App) watchdog() {
     }
 }
 
+type responseWriter struct {
+    http.ResponseWriter
+    app *App
+    code int
+    notedCode bool
+}
+
+// Satisfy the interface
+func (w *responseWriter) Header() http.Header {
+    return w.ResponseWriter.Header()
+}
+
+func (w *responseWriter) Write(buf []byte) (int, error) {
+    w.noteCode()
+    return w.ResponseWriter.Write(buf)
+}
+
+func (w *responseWriter) WriteHeader(code int) {
+    w.code = code
+    w.noteCode()
+    w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *responseWriter) noteCode() {
+    if !w.notedCode {
+        statsKey := fmt.Sprintf("http_status.%d", w.code)
+        w.app.Stats.Inc(statsKey, 1)
+        w.notedCode = true
+    }
+}
+
 func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
     // Wrap the handler, so we can do before/after logic
     f := func(w http.ResponseWriter, r *http.Request) {
@@ -276,8 +303,9 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
         defer func() {
             a.doneReq <- gopRequest
         }()
+        gopWriter := responseWriter{code: 200, app: a, ResponseWriter: w}
         // Pass in the gop, for logging, cfg etc
-        h(gopRequest, w, r)
+        h(gopRequest, &gopWriter, r)
     }
 
     return http.HandlerFunc(f)

@@ -76,8 +76,7 @@ Test ip6 access behind nginx
 
 ### Stats
 
-Decorate with specific GOP statsd measure
-[current and total http reqs in place, TODO: status codes]
+~~ (DONE) Decorate with specific GOP statsd measure~~
 
 Add more detailed introspection:
 
