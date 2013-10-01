@@ -247,12 +247,19 @@ func (a *App) watchdog() {
 
     for {
         sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
-        sysMemBytes := int64(getSysMemBytesUsed())  // Only supports 2^63 byte systems
-        a.Info("TICK: %d bytes %d current %d total", getSysMemBytesUsed, a.currentReqs, a.totalReqs)
+        allocMemBytesLimit, _ := a.Cfg.GetInt64("gop", "allocmem_bytes_limit", 0)
+        sysMemBytes, allocMemBytes := getMemInfo()
+        a.Info("TICK: %d bytes sys %d bytes alloc %d current req %d total req", sysMemBytes, allocMemBytes, a.currentReqs, a.totalReqs)
+        a.Stats.Gauge("mem.sys", sysMemBytes)
+        a.Stats.Gauge("mem.alloc", allocMemBytes)
 
         if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
-            a.Error("MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
-            a.StartGracefulRestart("Memory limit reached")
+            a.Error("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
+            a.StartGracefulRestart("Sys Memory limit reached")
+        }
+        if allocMemBytesLimit > 0 && allocMemBytes >= allocMemBytesLimit {
+            a.Error("ALLOC MEM LIMIT REACHED [%d >= %d] - starting graceful restart", allocMemBytes, allocMemBytesLimit)
+            a.StartGracefulRestart("Alloc Memory limit reached")
         }
 
         restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
@@ -329,9 +336,9 @@ func (a *App) Serve(l net.Listener) {
     http.Serve(l, a.GorillaRouter)
 }
 
-func getSysMemBytesUsed() uint64 {
+func getMemInfo() (int64, int64) {
     var memStats runtime.MemStats
     runtime.ReadMemStats(&memStats)
     // There's lots of stuff in here.
-    return memStats.Sys
+    return int64(memStats.Sys), int64(memStats.Alloc)
 }
