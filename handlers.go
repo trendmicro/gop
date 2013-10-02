@@ -94,6 +94,7 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
         Method          string
         Url             string
         Duration        float64
+        RemoteIP        string
     }
     type requestStatus struct {
         ProjectName     string
@@ -120,6 +121,7 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
             Method: req.r.Method,
             Url: req.r.URL.String(),
             Duration: reqDuration.Seconds(),
+            RemoteIP: req.RealRemoteIP,
         }
         status.RequestInfo = append(status.RequestInfo, info)
     }

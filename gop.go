@@ -56,6 +56,7 @@ type Req struct {
     startTime       time.Time
     app             *App
     r               *http.Request
+    RealRemoteIP    string
 }
 
 // The function signature your http handlers need.
@@ -129,6 +130,20 @@ func (a *App) requestMaker() {
     for {
         select {
             case wantReq := <- a.wantReq: {
+                realRemoteIP := wantReq.r.RemoteAddr
+                useXFF, _:= a.Cfg.GetBool("gop", "use_xff_header", false)
+                if useXFF {
+                    xff := wantReq.r.Header.Get("X-Forwarded-For")
+                    if xff != "" {
+                        ips := strings.Split(xff, ",")
+                        for i, ip := range ips {
+                            ips[i] = strings.TrimSpace(ip)
+                        }
+                        // The only trustworthy component is the *last* (and only if we
+                        // are behind nginx or other proxy which is stripping x-f-f from incoming requests)
+                        realRemoteIP = ips[len(ips)-1]
+                    }
+                }
                 req := Req{
                     common: common{
                         Logger:     a.Logger,
@@ -141,6 +156,7 @@ func (a *App) requestMaker() {
                     app:        a,
                     startTime:  time.Now(),
                     r:          wantReq.r,
+                    RealRemoteIP: realRemoteIP,
                 }
                 openReqs[req.id] = &req
                 nextReqId++
