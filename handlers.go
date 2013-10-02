@@ -27,6 +27,10 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
             handleStatus(g, w, r)
             return
         }
+        case "stack": {
+            handleStack(g, w, r)
+            return
+        }
         case "mem": {
             handleMem(g, w, r)
             return
@@ -88,6 +92,19 @@ func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
     sendJson(g, w, "memstats", memStats)
 }
 
+func handleStack(g *Req, w http.ResponseWriter, r *http.Request) {
+    buf := make([]byte, 1024)
+    for {
+        traceLen := runtime.Stack(buf, true)
+        if traceLen < len(buf) {
+            break
+        }
+        // Try a bigger buf
+        buf = make([]byte, 2 * len(buf))
+    }
+    w.Write(buf)
+}
+
 func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
     type requestInfo struct {
         Id              int
@@ -103,6 +120,7 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
         Pid             int
         StartTime       time.Time
         UptimeSeconds   float64
+        NumGoros        int
         RequestInfo     []requestInfo
     }
     appDuration := time.Since(g.app.startTime).Seconds()
@@ -112,6 +130,7 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
         Pid: os.Getpid(),
         StartTime: g.app.startTime,
         UptimeSeconds: appDuration,
+        NumGoros: runtime.NumGoroutine(),
     }
     reqChan := make(chan *Req)
     g.app.getReqs <- reqChan

@@ -273,23 +273,27 @@ func (a *App) watchdog() {
         sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
         allocMemBytesLimit, _ := a.Cfg.GetInt64("gop", "allocmem_bytes_limit", 0)
         numFDsLimit, _ := a.Cfg.GetInt64("gop", "numfds_limit", 0)
+        numGorosLimit, _ := a.Cfg.GetInt64("gop", "numgoros_limit", 0)
 
         sysMemBytes, allocMemBytes := getMemInfo()
         numFDs, err := fdsInUse()
+        numGoros := int64(runtime.NumGoroutine())
         if err != nil {
             a.Error("Failed to get number of fds in use: %s", err.Error())
             // Continue without
         }
 
-        a.Info("TICK: %d bytes sys %d bytes alloc %d fds %d current req %d total req",
+        a.Info("TICK: sys=%d,alloc=%d,fds=%d,current_req=%d,total_req=%d,goros=%d",
             sysMemBytes,
             allocMemBytes,
             numFDs,
             a.currentReqs,
-            a.totalReqs)
+            a.totalReqs,
+            numGoros)
         a.Stats.Gauge("mem.sys", sysMemBytes)
         a.Stats.Gauge("mem.alloc", allocMemBytes)
         a.Stats.Gauge("numfds", numFDs)
+        a.Stats.Gauge("numgoro", numGoros)
 
         if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
             a.Error("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
@@ -302,6 +306,10 @@ func (a *App) watchdog() {
         if numFDsLimit > 0 && numFDs >= numFDsLimit {
             a.Error("NUM FDS LIMIT REACHED [%d >= %d] - starting graceful restart", numFDs, numFDsLimit)
             a.StartGracefulRestart("Number of fds limit reached")
+        }
+        if numGorosLimit > 0 && numGoros >= numGorosLimit {
+            a.Error("NUM GOROS LIMIT REACHED [%d >= %d] - starting graceful restart", numGoros, numGorosLimit)
+            a.StartGracefulRestart("Number of goros limit reached")
         }
 
         restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)

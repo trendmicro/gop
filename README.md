@@ -66,7 +66,7 @@ Detail log setting by some mixture of package/func/file/line
 
 Set UID and GUID from config at startup (default to project name)
 
-[partially done. user=<username> honoured in gop config]
+[partially done. user=<username> honoured in gop config, falback of appname, projectname]
 
 ### Remote endpoint
 
@@ -84,9 +84,9 @@ Add more detailed introspection:
 
 ~~ (DONE) - full GC stats)~~
 
-- number of goros
+~~ (DONE) - number of goros~~
 
-- full goro stack dump?
+~~ (DONE) - full goro stack dump?~~
 
 ### Signal handling
 
