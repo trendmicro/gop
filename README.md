@@ -48,7 +48,7 @@ Reconcile graceful restart with a process manager
 
 ~~ (DONE) Restart after handling X requests or Y seconds~~
 
-Track number of fds in use (write out in the TICK messages) and restart when limit hit
+~~ (DONE) Track number of fds in use (write out in the TICK messages) and restart when limit hit~~
 
 ~~ (DONE) Force GC every N requests~~
 

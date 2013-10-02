@@ -13,9 +13,6 @@ import (
     "net/http"
     "strings"
 
-    "os/user"
-    "syscall"
-    "strconv"
 )
 
 // Stuff we include in both App and Req, for convenience
@@ -100,38 +97,6 @@ func Init(projectName, appName string) *App {
     go app.requestMaker()
 
     return app
-}
-
-func runAsUserName(desiredUserName string) bool {
-    // We do not have logging set up yet. We just panic() on error.
-
-    if desiredUserName == "" {
-        return false
-    }
-
-    currentUser, err := user.Current()
-    if err != nil {
-        panic(fmt.Sprintf("Can't find current user: %s", err.Error()))
-    }
-
-    desiredUser, err := user.Lookup(desiredUserName)
-    if err != nil {
-        // Not a fatal error, we'll just try the next
-        return false
-    }
-
-
-    if currentUser.Uid != desiredUser.Uid {
-        numericId, err := strconv.Atoi(desiredUser.Uid)
-        if err != nil {
-            panic(fmt.Sprintf("Can't interpret [%s] as a numeric user id [following lookup of usernmae %s]", desiredUser.Uid, desiredUserName))
-        }
-        err = syscall.Setuid(numericId)
-        if err != nil {
-            panic(fmt.Sprintf("Can't setuid to [%s]: %s", desiredUser.Uid, err.Error()))
-        }
-    }
-    return true
 }
 
 func (a *App) setUserAndGroup() {
@@ -286,10 +251,24 @@ func (a *App) watchdog() {
     for {
         sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
         allocMemBytesLimit, _ := a.Cfg.GetInt64("gop", "allocmem_bytes_limit", 0)
+        numFDsLimit, _ := a.Cfg.GetInt64("gop", "numfds_limit", 0)
+
         sysMemBytes, allocMemBytes := getMemInfo()
-        a.Info("TICK: %d bytes sys %d bytes alloc %d current req %d total req", sysMemBytes, allocMemBytes, a.currentReqs, a.totalReqs)
+        numFDs, err := fdsInUse()
+        if err != nil {
+            a.Error("Failed to get number of fds in use: %s", err.Error())
+            // Continue without
+        }
+
+        a.Info("TICK: %d bytes sys %d bytes alloc %d fds %d current req %d total req",
+            sysMemBytes,
+            allocMemBytes,
+            numFDs,
+            a.currentReqs,
+            a.totalReqs)
         a.Stats.Gauge("mem.sys", sysMemBytes)
         a.Stats.Gauge("mem.alloc", allocMemBytes)
+        a.Stats.Gauge("numfds", numFDs)
 
         if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
             a.Error("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
@@ -298,6 +277,10 @@ func (a *App) watchdog() {
         if allocMemBytesLimit > 0 && allocMemBytes >= allocMemBytesLimit {
             a.Error("ALLOC MEM LIMIT REACHED [%d >= %d] - starting graceful restart", allocMemBytes, allocMemBytesLimit)
             a.StartGracefulRestart("Alloc Memory limit reached")
+        }
+        if numFDsLimit > 0 && numFDs >= numFDsLimit {
+            a.Error("NUM FDS LIMIT REACHED [%d >= %d] - starting graceful restart", numFDs, numFDsLimit)
+            a.StartGracefulRestart("Number of fds limit reached")
         }
 
         restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
