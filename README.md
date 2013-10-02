@@ -70,7 +70,7 @@ Set UID and GUID from config at startup (default to project name)
 
 ### Remote endpoint
 
-Extract X-Forwarded-For and X-Forwarded-Proto info from nginx. Expose to app. Expose in request-status.
+~~ (DONE) Extract X-Forwarded-For and X-Forwarded-Proto info from nginx. Expose to app. Expose in request-status.~~
 
 ### IPv6
 

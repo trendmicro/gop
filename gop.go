@@ -57,6 +57,7 @@ type Req struct {
     app             *App
     r               *http.Request
     RealRemoteIP    string
+    IsHTTPS         bool
 }
 
 // The function signature your http handlers need.
@@ -131,8 +132,9 @@ func (a *App) requestMaker() {
         select {
             case wantReq := <- a.wantReq: {
                 realRemoteIP := wantReq.r.RemoteAddr
-                useXFF, _:= a.Cfg.GetBool("gop", "use_xff_header", false)
-                if useXFF {
+                isHTTPS := false
+                useXF, _:= a.Cfg.GetBool("gop", "use_xf_headers", false)
+                if useXF {
                     xff := wantReq.r.Header.Get("X-Forwarded-For")
                     if xff != "" {
                         ips := strings.Split(xff, ",")
@@ -143,6 +145,8 @@ func (a *App) requestMaker() {
                         // are behind nginx or other proxy which is stripping x-f-f from incoming requests)
                         realRemoteIP = ips[len(ips)-1]
                     }
+                    xfp := wantReq.r.Header.Get("X-Forwarded-Proto")
+                    isHTTPS = strings.ToLower(xfp) == "https"
                 }
                 req := Req{
                     common: common{
@@ -157,6 +161,7 @@ func (a *App) requestMaker() {
                     startTime:  time.Now(),
                     r:          wantReq.r,
                     RealRemoteIP: realRemoteIP,
+                    IsHTTPS:    isHTTPS,
                 }
                 openReqs[req.id] = &req
                 nextReqId++
