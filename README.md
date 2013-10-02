@@ -50,7 +50,7 @@ Reconcile graceful restart with a process manager
 
 Track number of fds in use (write out in the TICK messages) and restart when limit hit
 
-Force GC every N requests
+~~ (DONE) Force GC every N requests~~
 
 /gop/mem - POST to allow 'gc now' and runteim.debug.SetGCPercent
 

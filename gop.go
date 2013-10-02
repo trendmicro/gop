@@ -3,6 +3,7 @@ package gop
 import (
     "github.com/gorilla/mux"
     "github.com/gorilla/context"
+    "github.com/gorilla/schema"
     "github.com/jbert/timber"
 
     "fmt"
@@ -22,6 +23,7 @@ type common struct {
     timber.Logger
     Cfg             *Config
     Stats           StatsdClient
+    Decoder         *schema.Decoder
 }
 
 // Represents a managed gop app. Returned by init.
@@ -65,6 +67,9 @@ type HandlerFunc func(g *Req, w http.ResponseWriter, r *http.Request)
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
     app := &App{
+        common: common{
+            Decoder:        schema.NewDecoder(),
+        },
         AppName:        appName,
         ProjectName:    projectName,
         GorillaRouter:  mux.NewRouter(),
@@ -138,6 +143,7 @@ func (a *App) requestMaker() {
                         Logger:     a.Logger,
                         Cfg:        a.Cfg,
                         Stats:      a.Stats,
+                        Decoder:    a.Decoder,
                     },
 
                     id:         nextReqId,
@@ -317,6 +323,13 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
             a.doneReq <- gopRequest
         }()
         gopWriter := responseWriter{code: 200, app: a, ResponseWriter: w}
+
+        err := r.ParseForm()
+        if err != nil {
+            http.Error(&gopWriter, "Failed to parse form: " + err.Error(), http.StatusInternalServerError)
+            return
+        }
+
         // Pass in the gop, for logging, cfg etc
         h(gopRequest, &gopWriter, r)
     }

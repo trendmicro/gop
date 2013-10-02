@@ -52,6 +52,13 @@ func sendJson(g *Req, w http.ResponseWriter, what string, v interface{}) {
 }
 
 func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
+    /*
+    if r.Method == "POST" {
+        type 
+        g.decoder
+        err = decoder.Decode(&pmReq, r.PostForm)
+    }
+    */
     var memStats runtime.MemStats
     runtime.ReadMemStats(&memStats)
     sendJson(g, w, "memstats", memStats)
@@ -108,8 +115,7 @@ func handleTest(g *Req, w http.ResponseWriter, r *http.Request) {
         Secs int `schema:"secs"`
     }
     args := details{}
-    r.ParseForm()
-    err := decoder.Decode(&args, r.Form)
+    err := g.Decoder.Decode(&args, r.Form)
     if err != nil {
         http.Error(w, "Failed to decode params: " + err.Error(), http.StatusInternalServerError)
         return
