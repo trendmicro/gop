@@ -52,6 +52,8 @@ Track number of fds in use (write out in the TICK messages) and restart when lim
 
 Force GC every N requests
 
+/gop/mem - POST to allow 'gc now' and runteim.debug.SetGCPercent
+
 ### Logging improvements
 
 Log rotation
@@ -80,7 +82,7 @@ Test ip6 access behind nginx
 
 Add more detailed introspection:
 
-- full GC stats)
+~~ (DONE) - full GC stats)~~
 
 - number of goros
 

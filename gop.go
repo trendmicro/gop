@@ -200,6 +200,12 @@ func (g *Req) finished() {
         g.Error("Graceful restart after max_requests: %d", restartReqs)
         g.app.StartGracefulRestart("Max requests reached")
     }
+
+    gcEveryReqs, _ := g.Cfg.GetInt("gop", "gc_requests", 0)
+    if gcEveryReqs > 0 && g.app.totalReqs % gcEveryReqs == 0 {
+        g.Info("Forcing GC after %d reqs", g.app.totalReqs)
+        runtime.GC()
+    }
 }
 
 func (a *App) initLogging() {
