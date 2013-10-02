@@ -5,10 +5,12 @@ import (
     "github.com/gorilla/schema"
     "net/http"
     "fmt"
+    "io"
     "time"
     "os"
     "encoding/json"
     "runtime"
+    "runtime/debug"
 )
 
 var decoder = schema.NewDecoder()       // Single-instance so struct info cached
@@ -52,13 +54,35 @@ func sendJson(g *Req, w http.ResponseWriter, what string, v interface{}) {
 }
 
 func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
-    /*
     if r.Method == "POST" {
-        type 
-        g.decoder
-        err = decoder.Decode(&pmReq, r.PostForm)
+        type memParams struct {
+            GCNow       int `schema:"gc_now"`
+            GCPercent   int `schema:"gc_percent"`
+        }
+        params := memParams{}
+        err := g.Decoder.Decode(&params, r.Form)
+        if err != nil {
+            g.Error("Failed to decode params: " + err.Error(), http.StatusInternalServerError)
+            http.Error(w, "Failed to decode params: " + err.Error(), http.StatusInternalServerError)
+            return
+        }
+        msg := "Adjusting mem system\n"
+        if params.GCNow > 0 {
+            info := "Running GC by request to handler"
+            g.Info(info)
+            msg += info + "\n"
+
+            runtime.GC()
+        }
+        if params.GCPercent > 0 {
+            oldVal := debug.SetGCPercent(params.GCPercent)
+            info := fmt.Sprintf("Set GC%% to [%d] was [%d]", params.GCPercent, oldVal)
+            g.Info(info)
+            msg += info + "\n"
+        }
+        io.WriteString(w, msg)
+        return
     }
-    */
     var memStats runtime.MemStats
     runtime.ReadMemStats(&memStats)
     sendJson(g, w, "memstats", memStats)
