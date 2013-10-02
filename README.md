@@ -52,7 +52,7 @@ Track number of fds in use (write out in the TICK messages) and restart when lim
 
 ~~ (DONE) Force GC every N requests~~
 
-/gop/mem - POST to allow 'gc now' and runteim.debug.SetGCPercent
+~~ (DONE) /gop/mem - POST to allow 'gc now' and runteim.debug.SetGCPercent~~
 
 ### Logging improvements
 

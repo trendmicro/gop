@@ -102,20 +102,25 @@ func Init(projectName, appName string) *App {
     return app
 }
 
-func (a *App) setUserAndGroup() {
+func runAsUserName(desiredUserName string) bool {
     // We do not have logging set up yet. We just panic() on error.
 
-    desiredUserName, _ := a.Cfg.Get("gop", "user", a.AppName)
-    desiredUser, err := user.Lookup(desiredUserName)
-    // NickG would prefer we die screaming instead of running on as root
-    if err != nil {
-        panic(fmt.Sprintf("Can't find user [%s] - please set config correctly and/or create user", desiredUserName))
+    if desiredUserName == "" {
+        return false
     }
 
     currentUser, err := user.Current()
     if err != nil {
         panic(fmt.Sprintf("Can't find current user: %s", err.Error()))
     }
+
+    desiredUser, err := user.Lookup(desiredUserName)
+    if err != nil {
+        // Not a fatal error, we'll just try the next
+        return false
+    }
+
+
     if currentUser.Uid != desiredUser.Uid {
         numericId, err := strconv.Atoi(desiredUser.Uid)
         if err != nil {
@@ -125,6 +130,27 @@ func (a *App) setUserAndGroup() {
         if err != nil {
             panic(fmt.Sprintf("Can't setuid to [%s]: %s", desiredUser.Uid, err.Error()))
         }
+    }
+    return true
+}
+
+func (a *App) setUserAndGroup() {
+    // We do not have logging set up yet. We just panic() on error.
+
+    desiredUserName, _ := a.Cfg.Get("gop", "user", "")
+    // Usernames it's ok to run as, in order of preference
+    possibleUserNames := []string{desiredUserName, a.AppName, a.ProjectName}
+
+    doneIt := false
+    for _, desiredUserName := range possibleUserNames {
+        if runAsUserName(desiredUserName) {
+            doneIt = true
+            break
+        }
+    }
+
+    if !doneIt {
+        panic(fmt.Sprintf("Can't run as any of these users: %v, please set config and/or create user", possibleUserNames))
     }
 
 // Can't log at this stage :-/
