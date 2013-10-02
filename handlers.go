@@ -7,6 +7,8 @@ import (
     "fmt"
     "time"
     "os"
+    "encoding/json"
+    "runtime"
 )
 
 var decoder = schema.NewDecoder()       // Single-instance so struct info cached
@@ -23,6 +25,10 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
             handleRequestStatus(g, w, r)
             return
         }
+        case "mem": {
+            handleMem(g, w, r)
+            return
+        }
         case "test": {
             handleTest(g, w, r)
             return
@@ -32,6 +38,19 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
             return
         }
     }
+}
+
+func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
+    var memStats runtime.MemStats
+    runtime.ReadMemStats(&memStats)
+    json, err := json.Marshal(memStats)
+    if err != nil {
+        g.Error("Failed to encode memstats as json: %s", err.Error())
+        http.Error(w, "Failed to get stats", http.StatusInternalServerError)
+        return
+    }
+    w.Header().Set("Content-Type", "text/json")
+    w.Write(json)
 }
 
 func handleRequestStatus(g *Req, w http.ResponseWriter, r *http.Request) {
