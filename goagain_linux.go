@@ -91,11 +91,9 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
         }
     }
 
-    a.Info("Graceful restart - with %d pending reqs", a.currentReqs)
+    a.Info("Graceful restart/exit - with %d pending reqs", a.currentReqs)
 
     // Start a log flush
     timber.Close()
-    // This sucks. Wait for logs to flush.
-    time.Sleep(time.Second * 2)
 }
 
