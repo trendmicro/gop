@@ -12,6 +12,7 @@ import (
     "runtime"
     "net/http"
     "strings"
+    "log"
 
 )
 
@@ -263,6 +264,11 @@ func (a *App) initLogging() {
     l := timber.NewTimber()
     l.AddLogger(configLogger)
     a.Logger = l
+
+    // Set up the default go logger to go here too, so 3rd party
+    // module logging plays nicely
+    log.SetFlags(0)
+    log.SetOutput(timber.Global)
 }
 
 func (a *App) watchdog() {
