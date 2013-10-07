@@ -13,7 +13,7 @@ import (
     "net/http"
     "strings"
     "log"
-
+	"syscall"
 )
 
 // Stuff we include in both App and Req, for convenience
@@ -85,6 +85,8 @@ func Init(projectName, appName string) *App {
 
     app.initLogging()
 
+	app.setProcessGroupForNelly()
+
     maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4 * runtime.NumCPU())
     app.Debug("Seting maxprocs to %d\n", maxProcs)
     runtime.GOMAXPROCS(maxProcs)
@@ -123,6 +125,16 @@ func (a *App) setUserAndGroup() {
 
 // Can't log at this stage :-/
 //    a.Info("Running as user %s (%d)", desiredUserName, desiredUser.Uid)
+}
+
+func (a *App) setProcessGroupForNelly() {
+	// Nelly knows our pid and will check that there is always at
+	// least one process in the process group with the same id as our pid
+	mypid := syscall.Getpid()
+	err := syscall.Setpgid(mypid, mypid)
+	if err != nil {
+        panic(fmt.Sprintf("Failed to setprgp]: %s\n", mypid, mypid, err.Error()))
+	}
 }
 
 // Hands out 'request' objects
