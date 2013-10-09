@@ -11,38 +11,23 @@ import (
     "syscall"
 )
 
+// Embed so we can define our own methods here
+type nelly struct {
+    *gop.App
+    exeName string
+    pgid int
+    sigChan chan os.Signal
+}
+
 func main() {
-    var appName string
-    flag.StringVar(&appName, "service", "", "Name of service to start")
+    n := loadNelly()
 
-    var projectName string
-    flag.StringVar(&projectName, "project", "", "Name of project")
+    proc := n.startChild()
 
-	if projectName == "" {
-		println("You must specify the name of a projec with --project=project_name")
-		os.Exit(1)
-	}
-	if appName == "" {
-		println("You must specify the name of a gop exe to run with --service=exe_name")
-		os.Exit(1)
-	}
-
-    // We won't run gop, but load it up for config and logging
-    a := gop.Init(projectName, appName) 
-
-    checkSecs, _ := a.Cfg.GetFloat32("gop", "nelly_check_secs", 1.0)
-
-    a.Info("nelly initialised for [%s:%s]", projectName, appName)
-
-    attr := new(os.ProcAttr)
-    proc, err := os.StartProcess(appName, nil, attr)
-    if err != nil {
-        panic(fmt.Sprintf("Failed to start process [%s]: %s", appName, err.Error()))
-    }
-    a.Info("Started executable [%s] pid %d", appName, proc.Pid)
-
-	// The child has to call setpgrp() to install itself as a process group leader. We can
-	// then monitor whether the process group has become empty or not.
+	// The child has to call setpgid() to install itself as a process group leader
+    // (i.e. it will have pgid == pid).
+    // We can then monitor whether the process group has become empty or not.
+    n.pgid = proc.Pid
 
     // We can send a signal to all members of a process group with kill() with a -ve pid
     // We can send a 'do nothing' signal with a sig of 0
@@ -50,41 +35,88 @@ func main() {
     // So we can send a sig of 0 to a process group and see if the process group is empty
     // empty process group => we need to restart
 
-    sigChan := setupSignals(a, proc)
+    n.setupSignals(proc)
 
-    pgid := proc.Pid
-
+    checkSecs, _ := n.Cfg.GetFloat32("gop", "nelly_check_secs", 1.0)
     ticker := time.Tick(time.Second * time.Duration(checkSecs))
 LOOP:
     for {
         select {
             case <- ticker: {
-                if processGroupEmpty(a, pgid) {
-                    a.Error("Process group [%d] empty", pgid)
+                if n.processGroupIsEmpty() {
+                    n.Error("Process group [%d] empty", n.pgid)
                     break LOOP
                 }
             }
-            case sig := <- sigChan: {
-                a.Error("Caught signal: %s - killing process group", sig)
-                syscall.Kill(-pgid, syscall.SIGTERM)
-                a.Error("Exiting on SIGTERM")
+            case sig := <- n.sigChan: {
+                n.Error("Caught signal: %s - killing process group", sig)
+                syscall.Kill(-n.pgid, syscall.SIGTERM)
+                n.Error("Exiting on SIGTERM")
                 os.Exit(0)
             }
         }
     }
-    a.Error("Descendants are dead - exiting")
+    n.Error("Descendants are dead - exiting")
 }
 
-func setupSignals(a *gop.App, proc *os.Process) chan os.Signal {
-    sigChan := make(chan os.Signal, 10)     // 10 is arbitrary, we just need to keep up
-    signal.Notify(sigChan, syscall.SIGTERM)
-    return sigChan
+func (n *nelly) setupSignals(proc *os.Process) {
+    n.sigChan = make(chan os.Signal, 10)     // 10 is arbitrary, we just need to keep up
+//    signal.Notify(n.sigChan, syscall.SIGTERM, syscall.SIGKILL)
+    signal.Notify(n.sigChan)
 }
 
-func processGroupEmpty(a *gop.App, pgid int) bool {
-    err := syscall.Kill(-pgid, syscall.Signal(0x00))
+func (n *nelly) processGroupIsEmpty() bool {
+    err := syscall.Kill(-n.pgid, syscall.Signal(0x00))
     if err != nil {
-        a.Error("Kill error: %s\n", err.Error())
+        n.Error("Kill error: %s\n", err.Error())
     }
     return err != nil
 }
+
+func loadNelly() *nelly {
+    var exeName string
+    flag.StringVar(&exeName, "exe", "", "Name of executable to run")
+
+    var appName string
+    flag.StringVar(&appName, "service", "", "Name of service to start")
+
+    var projectName string
+    flag.StringVar(&projectName, "project", "", "Name of project")
+
+    flag.Parse()
+
+	if projectName == "" {
+		println("You must specify the name of a project with --project=project_name")
+		os.Exit(1)
+	}
+	if appName == "" {
+		println("You must specify the name of a gop service to run with --service=service_name")
+		os.Exit(1)
+	}
+	if exeName == "" {
+		println("You must specify the name of a gop exe to run with --exe=exe_name")
+		os.Exit(1)
+	}
+
+    // We won't run gop, but load it up for config and logging
+    a := gop.Init(projectName, appName) 
+
+    // Wrap so we can have methods on our own type
+    n := nelly{App: a, exeName: exeName}
+
+    n.Info("nelly initialised for [%s:%s:%s]", projectName, appName, exeName)
+
+    return &n
+}
+
+func (n *nelly) startChild() *os.Process {
+    attr := new(os.ProcAttr)
+    proc, err := os.StartProcess(n.exeName, nil, attr)
+    if err != nil {
+        panic(fmt.Sprintf("Failed to start process [%s]: %s", n.exeName, err.Error()))
+    }
+    n.Info("Started executable [%s] pid %d", n.exeName, proc.Pid)
+
+    return proc
+}
+
