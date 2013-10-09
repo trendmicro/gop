@@ -85,21 +85,11 @@ func Init(projectName, appName string) *App {
 
     app.initLogging()
 
-	app.setProcessGroupForNelly()
-
     maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4 * runtime.NumCPU())
     app.Debug("Seting maxprocs to %d\n", maxProcs)
     runtime.GOMAXPROCS(maxProcs)
 
     app.initStatsd()
-
-    app.goAgainSetup()
-
-    app.registerGopHandlers()
-
-    go app.watchdog()
-
-    go app.requestMaker()
 
     return app
 }
@@ -402,6 +392,16 @@ func (a *App) HandleFunc(u string, h HandlerFunc) {
 }
 
 func (a *App) Run() {
+	a.setProcessGroupForNelly()
+
+    a.goAgainSetup()
+
+    a.registerGopHandlers()
+
+    go a.watchdog()
+
+    go a.requestMaker()
+
     listenAddr, _ := a.Cfg.Get("gop", "listen_addr", ":http")
     listenNet, _ := a.Cfg.Get("gop", "listen_net", "tcp")
     a.goAgainListenAndServe(listenNet, listenAddr)
