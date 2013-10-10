@@ -9,6 +9,7 @@ import (
     "os/signal"
     "time"
     "syscall"
+    "io/ioutil"
 )
 
 // Embed so we can define our own methods here
@@ -21,6 +22,11 @@ type nelly struct {
 
 func main() {
     n := loadNelly()
+
+    if !n.okToStart() {
+        n.Error("Not ok to start - exiting")
+        return
+    }
 
     proc := n.startChild()
 
@@ -57,6 +63,7 @@ LOOP:
         }
     }
     n.Error("Descendants are dead - exiting")
+    n.Finish()
 }
 
 func (n *nelly) setupSignals(proc *os.Process) {
@@ -120,3 +127,67 @@ func (n *nelly) startChild() *os.Process {
     return proc
 }
 
+func (n* nelly) okToStart() bool {
+    _, err := os.Stat(n.pidFileDir())
+    if err != nil {
+        n.Error("Can't stat pid dir [%s]: %s", n.pidFileDir(), err.Error())
+        return false;
+    }
+
+    pid, exists := n.readPidFile()
+    if exists {
+        n.Error("Pid file exists - claims pid %d owns %s:%s", pid, n.ProjectName, n.AppName)
+        // Is the pid still running?
+        err := syscall.Kill(pid, syscall.Signal(0x00))
+        if err == nil {
+            n.Error("Pid %d is running - we can't start up")
+            return false
+        }
+        if err != os.ErrNotExist {
+            n.Error("Error trying to see if pid %d exists - failing startup: %s", err.Error())
+            return false
+        }
+        // Pid file exists but proc doesn't. Continue and overwrite it with our own pid
+    }
+    err = n.writePidFile()
+    if err != nil {
+        n.Error("Can't write pid file %s: %s", n.pidFileName(), err.Error())
+        return false
+    }
+    return true
+}
+
+func (n *nelly) writePidFile() error {
+    f, err := os.OpenFile(n.pidFileName(), os.O_RDWR, os.FileMode(0644))
+    if err != nil {
+        n.Error("Failed to open pid file [%s] for writing: %s", n.pidFileName(), err.Error())
+        return err
+    }
+    defer f.Close()
+    // Write our pid to the file
+    f.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+    return nil
+}
+
+func (n *nelly) readPidFile() (pid int, exists bool) {
+    buf, err := ioutil.ReadFile(n.pidFileName())
+    if err != nil {
+        if err != os.ErrNotExist {
+            n.Error("Failed to read pid file: %s", err)
+        }
+        return 0, false
+    }
+    fmt.Sscanf(string(buf), "%d\n", &pid)
+    if pid == 0 {
+        return 0, false
+    }
+    return pid, true
+}
+
+func (n *nelly) pidFileDir() string {
+    return fmt.Sprintf("/var/run/%s", n.ProjectName)
+}
+
+func (n *nelly) pidFileName() string {
+    return fmt.Sprintf("%s/%s.pid", n.pidFileDir(), n.AppName)
+}

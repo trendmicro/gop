@@ -86,12 +86,18 @@ func Init(projectName, appName string) *App {
     app.initLogging()
 
     maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4 * runtime.NumCPU())
-    app.Debug("Seting maxprocs to %d\n", maxProcs)
+    app.Debug("Setting maxprocs to %d\n", maxProcs)
     runtime.GOMAXPROCS(maxProcs)
 
     app.initStatsd()
 
     return app
+}
+
+// Clean shutdown
+func (a *App) Finish() {
+    // Start a log flush
+    timber.Close()
 }
 
 func (a *App) setUserAndGroup() {
