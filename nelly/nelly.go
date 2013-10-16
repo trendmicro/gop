@@ -158,7 +158,7 @@ func (n* nelly) okToStart() bool {
 }
 
 func (n *nelly) writePidFile() error {
-    f, err := os.OpenFile(n.pidFileName(), os.O_RDWR, os.FileMode(0644))
+    f, err := os.OpenFile(n.pidFileName(), os.O_CREATE | os.O_RDWR, os.FileMode(0644))
     if err != nil {
         n.Error("Failed to open pid file [%s] for writing: %s", n.pidFileName(), err.Error())
         return err
