@@ -22,6 +22,7 @@ type nelly struct {
 
 func main() {
     n := loadNelly()
+    defer n.Finish()
 
     if !n.okToStart() {
         n.Error("Not ok to start - exiting")
@@ -63,7 +64,6 @@ LOOP:
         }
     }
     n.Error("Descendants are dead - exiting")
-    n.Finish()
 }
 
 func (n *nelly) setupSignals(proc *os.Process) {
