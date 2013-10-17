@@ -355,6 +355,10 @@ func (w *responseWriter) Write(buf []byte) (int, error) {
     return w.ResponseWriter.Write(buf)
 }
 
+func (w *responseWriter) CloseNotify() <-chan bool {
+    return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
+}
+
 func (w *responseWriter) WriteHeader(code int) {
     w.code = code
     w.noteCode()
