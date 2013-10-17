@@ -269,14 +269,16 @@ func (a *App) initLogging() {
         }
     }
 
-    l := timber.NewTimber()
+    // *Don't* create a NewTImber here. Logs are only flushed on Close() and if we
+    // have more than one timber, it's easy to only Close() one of them...
+    l := timber.Global
     l.AddLogger(configLogger)
     a.Logger = l
 
     // Set up the default go logger to go here too, so 3rd party
     // module logging plays nicely
     log.SetFlags(0)
-    log.SetOutput(timber.Global)
+    log.SetOutput(l)
 }
 
 func (a *App) watchdog() {
