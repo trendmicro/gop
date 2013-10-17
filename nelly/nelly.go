@@ -144,7 +144,7 @@ func (n* nelly) okToStart() bool {
             return false
         }
         if err != os.ErrNotExist {
-            n.Error("Error trying to see if pid %d exists - failing startup: %s", err.Error())
+            n.Error("Error trying to see if pid %d exists - failing startup: %s", pid, err.Error())
             return false
         }
         // Pid file exists but proc doesn't. Continue and overwrite it with our own pid
