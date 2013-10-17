@@ -173,7 +173,7 @@ func (n *nelly) readPidFile() (pid int, exists bool) {
     buf, err := ioutil.ReadFile(n.pidFileName())
     if err != nil {
         if err != os.ErrNotExist {
-            n.Error("Failed to read pid file: %s", err)
+            n.Info("Failed to read pid file: %s", err)
         }
         return 0, false
     }
