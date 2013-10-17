@@ -15,9 +15,10 @@ import (
 // Embed so we can define our own methods here
 type nelly struct {
     *gop.App
-    exeName string
-    pgid int
-    sigChan chan os.Signal
+    ownThePidFile   bool
+    exeName         string
+    pgid            int
+    sigChan         chan os.Signal
 }
 
 func main() {
@@ -76,6 +77,16 @@ LOOP:
         }
     }
     n.Error("Descendants are dead - exiting")
+}
+
+func (n *nelly) Finish() {
+    if n.ownThePidFile {
+        err := os.Remove(n.pidFileName())
+        if err != nil {
+            n.Error("Failed to remove pidfile [%s]: %s", n.pidFileName(), err.Error())
+        }
+    }
+    n.App.Finish()
 }
 
 func (n *nelly) setupSignals(proc *os.Process) {
@@ -155,10 +166,15 @@ func (n* nelly) okToStart() bool {
             n.Error("Pid %d is running - we can't start up")
             return false
         }
-        if err != os.ErrNotExist {
-            n.Error("Error trying to see if pid %d exists - failing startup: %s", pid, err.Error())
+        // TODO: we'd like to discriminate between ESRCH and EPERM back from Kill,
+        // but I don't know how. Note that os.FindProcess is a crock of b0rkenness and can't
+        // be used to...you know...find a process.
+        // https://codereview.appspot.com/7392048/#msg18 
+        if err == nil {
+            n.Error("Pid %d exists - so we have to fail startup")
             return false
         }
+        n.Error("Error [%s] contacting pid %d - assume it's not there and claim pidfile", err.Error(), pid)
         // Pid file exists but proc doesn't. Continue and overwrite it with our own pid
     }
     err = n.writePidFile()
@@ -178,6 +194,7 @@ func (n *nelly) writePidFile() error {
     defer f.Close()
     // Write our pid to the file
     f.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+    n.ownThePidFile = true
     return nil
 }
 
