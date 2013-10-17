@@ -46,13 +46,25 @@ func main() {
 
     checkSecs, _ := n.Cfg.GetFloat32("gop", "nelly_check_secs", 1.0)
     ticker := time.Tick(time.Second * time.Duration(checkSecs))
+    // Number of times we'll allow the child to miss a ping at startup,
+    // which seems to be necessary since 1s isn't long enough for midserver
+    // to get as far as setpgrp on smoke, apparently
+    startGracePings, _ := n.Cfg.GetInt("gop", "nelly_startup_grace_checks", 5)
+
 LOOP:
     for {
         select {
             case <- ticker: {
                 if n.processGroupIsEmpty() {
-                    n.Error("Process group [%d] empty", n.pgid)
-                    break LOOP
+                    startGracePings--
+                    n.Error("Process group [%d] empty - grace pings left [%d]", n.pgid, startGracePings)
+                    if startGracePings <= 0 {
+                        n.Error("We appear to have no child - time to die and hope init sorts it all out")
+                        break LOOP
+                    }
+                } else {
+                    // We've had a good ping, no more Mr Nice Guy
+                    startGracePings = 0
                 }
             }
             case sig := <- n.sigChan: {
