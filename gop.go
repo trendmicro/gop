@@ -81,7 +81,11 @@ func Init(projectName, appName string) *App {
 
     app.loadAppConfigFile()
 
-    app.setUserAndGroup()
+    // Linux setuid() doesn't work with threaded procs :-O
+    // and the go runtime threads before we can get going.
+    //
+    // http://homepage.ntlworld.com/jonathan.deboynepollard/FGA/linux-thread-problems.html
+//    app.setUserAndGroup()
 
     app.initLogging()
 
@@ -100,28 +104,30 @@ func (a *App) Finish() {
     timber.Close()
 }
 
-func (a *App) setUserAndGroup() {
-    // We do not have logging set up yet. We just panic() on error.
-
-    desiredUserName, _ := a.Cfg.Get("gop", "user", "")
-    // Usernames it's ok to run as, in order of preference
-    possibleUserNames := []string{desiredUserName, a.AppName, a.ProjectName}
-
-    doneIt := false
-    for _, desiredUserName := range possibleUserNames {
-        if runAsUserName(desiredUserName) {
-            doneIt = true
-            break
-        }
-    }
-
-    if !doneIt {
-        panic(fmt.Sprintf("Can't run as any of these users: %v, please set config and/or create user", possibleUserNames))
-    }
-
-// Can't log at this stage :-/
-//    a.Info("Running as user %s (%d)", desiredUserName, desiredUser.Uid)
-}
+//
+// Commented out - not reliable - see comment at call site
+// func (a *App) setUserAndGroup() {
+//     // We do not have logging set up yet. We just panic() on error.
+// 
+//     desiredUserName, _ := a.Cfg.Get("gop", "user", "")
+//     // Usernames it's ok to run as, in order of preference
+//     possibleUserNames := []string{desiredUserName, a.AppName, a.ProjectName}
+// 
+//     doneIt := false
+//     for _, desiredUserName := range possibleUserNames {
+//         if runAsUserName(desiredUserName) {
+//             doneIt = true
+//             break
+//         }
+//     }
+// 
+//     if !doneIt {
+//         panic(fmt.Sprintf("Can't run as any of these users: %v, please set config and/or create user", possibleUserNames))
+//     }
+// 
+// // Can't log at this stage :-/
+// //    a.Info("Running as user %s (%d)", desiredUserName, desiredUser.Uid)
+// }
 
 func (a *App) setProcessGroupForNelly() {
 	// Nelly knows our pid and will check that there is always at
