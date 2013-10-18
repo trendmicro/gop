@@ -390,8 +390,9 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 
         err := r.ParseForm()
         if err != nil {
-            http.Error(&gopWriter, "Failed to parse form: " + err.Error(), http.StatusInternalServerError)
-            return
+            a.Error("Failed to parse form: " + err.Error() + " (continuing)")
+//            http.Error(&gopWriter, "Failed to parse form: " + err.Error(), http.StatusInternalServerError)
+//          return
         }
 
         // Pass in the gop, for logging, cfg etc
