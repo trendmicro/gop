@@ -17,5 +17,17 @@ func OK(t *testing.T, assertion bool, msg string) {
 }
 
 func ErrIs(t *testing.T, got, expected error, msg string) {
-	Assert(t, got == expected, msg, msg + " err: " + got.Error())
+	gotErr := "<nil>"
+	if got != nil {
+		gotErr = got.Error()
+	}
+	Assert(t, got == expected, msg, msg + " err: " + gotErr)
+}
+
+func ErrNotNil(t *testing.T, got error, msg string) {
+	gotErr := "<nil>"
+	if got != nil {
+		gotErr = got.Error()
+	}
+	Assert(t, got != nil, msg, msg + " err: " + gotErr)
 }
