@@ -19,7 +19,7 @@ import (
 // Stuff we include in both App and Req, for convenience
 type common struct {
     timber.Logger
-    Cfg             *Config
+    Cfg             Config
     Stats           StatsdClient
     Decoder         *schema.Decoder
 }

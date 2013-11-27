@@ -9,7 +9,15 @@ import (
     "strconv"
 )
 
-type Config map[string]Section
+type Config interface {
+	Get(sName, k string, def string) (string, bool)
+	GetInt(sName, k string, def int) (int, bool)
+	GetInt64(sName, k string, def int64) (int64, bool)
+	GetBool(sName, k string, def bool) (bool, bool)
+	GetFloat32(sName, k string, def float32) (float32, bool)
+}
+
+type ConfigMap map[string]Section
 
 type Section map[string]string
 
@@ -34,7 +42,7 @@ func (a *App) loadAppConfigFile() {
         panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
     }
 
-    theCfg := make(Config)
+    theCfg := make(ConfigMap)
     for section, m := range cfg {
         theCfg[section] = make(map[string]string)
         for k, v := range m {
@@ -44,7 +52,7 @@ func (a *App) loadAppConfigFile() {
     a.Cfg = &theCfg
 }
 
-func (cfg *Config) Get(sName, k string, def string) (string, bool) {
+func (cfg *ConfigMap) Get(sName, k string, def string) (string, bool) {
     s, ok := map[string]Section(*cfg)[sName]
     if !ok {
         return def, false
@@ -56,7 +64,7 @@ func (cfg *Config) Get(sName, k string, def string) (string, bool) {
     return v, true
 }
 
-func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
+func (cfg *ConfigMap) GetInt(sName, k string, def int) (int, bool) {
     v, found := cfg.Get(sName, k, "")
     if !found {
         return def, false
@@ -67,7 +75,7 @@ func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
     }
     panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
 }
-func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
+func (cfg *ConfigMap) GetInt64(sName, k string, def int64) (int64, bool) {
     v, found := cfg.Get(sName, k, "")
     if !found {
         return def, false
@@ -78,7 +86,7 @@ func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
     }
     panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
 }
-func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
+func (cfg *ConfigMap) GetBool(sName, k string, def bool) (bool, bool) {
     v, found := cfg.Get(sName, k, "")
     if !found {
         return def, false
@@ -89,7 +97,7 @@ func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
     }
     panic(fmt.Sprintf("Bad boolean config key %s: %s", k, v))
 }
-func (cfg *Config) GetFloat32(sName, k string, def float32) (float32, bool) {
+func (cfg *ConfigMap) GetFloat32(sName, k string, def float32) (float32, bool) {
     v, found := cfg.Get(sName, k, "")
     if !found {
         return def, false
