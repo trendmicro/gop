@@ -58,7 +58,7 @@ func sendJson(g *Req, w http.ResponseWriter, what string, v interface{}) {
 		http.Error(w, "Failed to encode json: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
 }
 
