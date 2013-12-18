@@ -1,19 +1,19 @@
 package test
 
 import (
+	"fmt"
 	"github.com/trendmicro/gop"
 	"strconv"
-	"fmt"
 )
 
 type TestConfig struct {
-	base		gop.Config
-	overrides	map[string]map[string]string
+	base      gop.Config
+	overrides map[string]map[string]string
 }
 
 func NewConfig(base gop.Config) *TestConfig {
 	return &TestConfig{
-		base: base,
+		base:      base,
 		overrides: make(map[string]map[string]string),
 	}
 }

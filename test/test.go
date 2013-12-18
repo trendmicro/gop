@@ -21,7 +21,7 @@ func ErrIs(t *testing.T, got, expected error, msg string) {
 	if got != nil {
 		gotErr = got.Error()
 	}
-	Assert(t, got == expected, msg, msg + " err: " + gotErr)
+	Assert(t, got == expected, msg, msg+" err: "+gotErr)
 }
 
 func ErrNotNil(t *testing.T, got error, msg string) {
@@ -29,5 +29,5 @@ func ErrNotNil(t *testing.T, got error, msg string) {
 	if got != nil {
 		gotErr = got.Error()
 	}
-	Assert(t, got != nil, msg, msg + " err: " + gotErr)
+	Assert(t, got != nil, msg, msg+" err: "+gotErr)
 }
