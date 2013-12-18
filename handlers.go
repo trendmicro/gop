@@ -51,17 +51,6 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sendJson(g *Req, w http.ResponseWriter, what string, v interface{}) {
-	json, err := json.Marshal(v)
-	if err != nil {
-		g.Error("Failed to encode %s as json: %s", what, err.Error())
-		http.Error(w, "Failed to encode json: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(json)
-}
-
 func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		type memParams struct {
@@ -94,7 +83,7 @@ func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
 	}
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	sendJson(g, w, "memstats", memStats)
+	g.SendJson(w, "memstats", memStats)
 }
 
 func handleStack(g *Req, w http.ResponseWriter, r *http.Request) {
@@ -151,7 +140,7 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) {
 		}
 		status.RequestInfo = append(status.RequestInfo, info)
 	}
-	sendJson(g, w, "status", status)
+	g.SendJson(w, "status", status)
 	/*
 	   fmt.Fprintf(w, "%s - %s PID %d up for %.3fs (%s)\n\n", g.app.ProjectName, g.app.AppName, os.Getpid(), appDuration, g.app.startTime)
 	   for req := range reqChan {

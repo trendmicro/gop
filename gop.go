@@ -244,6 +244,17 @@ func (g *Req) finished() {
 	}
 }
 
+func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
+	json, err := json.Marshal(v)
+	if err != nil {
+		g.Error("Failed to encode %s as json: %s", what, err.Error())
+		http.Error(w, "Failed to encode json: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+}
+
 func (a *App) initLogging() {
 
 	logPattern, _ := a.Cfg.Get("gop", "log_pattern", "[%D %T] [%L] %S %M")
