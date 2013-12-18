@@ -1,7 +1,6 @@
 package gop
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"

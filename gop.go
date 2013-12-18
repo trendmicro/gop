@@ -1,6 +1,7 @@
 package gop
 
 import (
+	"encoding/json"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
