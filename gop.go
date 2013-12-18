@@ -254,6 +254,7 @@ func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
+	w.Write([]byte("\n"))
 }
 
 func (a *App) initLogging() {
