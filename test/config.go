@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/trendmicro/gop"
 	"strconv"
+	"strings"
 )
 
 type TestConfig struct {
@@ -84,4 +85,15 @@ func (cfg *TestConfig) GetFloat32(sName, k string, def float32) (float32, bool) 
 		return float32(r), true
 	}
 	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
+}
+func (cfg *TestConfig) GetList(sName, k string, def []string) ([]string, bool) {
+	vStr, found := cfg.Get(sName, k, "")
+	if !found {
+		return def, false
+	}
+	v := strings.Split(vStr, ",")
+	for i := 0; i < len(v); i++ {
+		v[i] = strings.TrimSpace(v[i])
+	}
+	return v, true
 }

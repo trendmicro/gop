@@ -110,12 +110,8 @@ func (cfg *ConfigMap) GetFloat32(sName, k string, def float32) (float32, bool) {
 	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
 }
 func (cfg *ConfigMap) GetList(sName, k string, def []string) ([]string, bool) {
-	s, ok := map[string]Section(*cfg)[sName]
-	if !ok {
-		return def, false
-	}
-	vStr, ok := map[string]string(s)[k]
-	if !ok {
+	vStr, found := cfg.Get(sName, k, "")
+	if !found {
 		return def, false
 	}
 	v := strings.Split(vStr, ",")
