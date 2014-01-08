@@ -259,7 +259,12 @@ func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
 
 func (a *App) initLogging() {
 
-	logPattern, _ := a.Cfg.Get("gop", "log_pattern", "[%D %T] [%L] %S %M")
+	defaultLogPattern := "[%D %T] [%L] %M"
+	filenamesByDefault, _ := a.Cfg.GetBool("gop", "log_filename", false)
+	if filenamesByDefault {
+		defaultLogPattern = "[%D %T] [%L] %S %M"
+	}
+	logPattern, _ := a.Cfg.Get("gop", "log_pattern", defaultLogPattern)
 
 	// If set, hack all logging to stdout for dev
 	forceStdout, _ := a.Cfg.GetBool("gop", "stdout_only_logging", false)
