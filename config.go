@@ -11,6 +11,9 @@ import (
 
 type ConfigSource interface {
 	Get(sName, k string, def string) (string, bool)
+	Add(sName, k, v string)
+	Sections() []string
+	SectionKeys(sName string) []string
 }
 
 type Config struct {
@@ -18,8 +21,7 @@ type Config struct {
 	overrides 	map[string]map[string]string
 }
 
-type Section map[string]string
-type ConfigMap map[string]Section
+type ConfigMap map[string]map[string]string
 
 
 func (a *App) loadAppConfigFile() {
@@ -45,9 +47,8 @@ func (a *App) loadAppConfigFile() {
 
 	configSource := make(ConfigMap)
 	for section, m := range cfg {
-		configSource[section] = make(map[string]string)
 		for k, v := range m {
-			configSource[section][k] = v
+			configSource.Add(section, k, v)
 		}
 	}
 	a.Cfg = Config{
@@ -56,8 +57,8 @@ func (a *App) loadAppConfigFile() {
 	}
 }
 
-func (cfg *ConfigMap) Get(sName, k string, def string) (string, bool) {
-	s, ok := map[string]Section(*cfg)[sName]
+func (cfgMap *ConfigMap) Get(sName, k string, def string) (string, bool) {
+	s, ok := map[string]map[string]string(*cfgMap)[sName]
 	if !ok {
 		return def, false
 	}
@@ -68,8 +69,87 @@ func (cfg *ConfigMap) Get(sName, k string, def string) (string, bool) {
 	return v, true
 }
 
+func (cfgMap *ConfigMap) Add(sName, k, v string) {
+	_, ok := (*cfgMap)[sName]
+	if !ok {
+		(*cfgMap)[sName] = make(map[string]string)
+	}
+	(*cfgMap)[sName][k] = v
+}
 
+func (cfgMap *ConfigMap) Sections() []string {
+	sections := make([]string, 0)
+	for k, _ := range *cfgMap {
+		sections = append(sections, k)
+	}
+	return sections
+}
 
+func (cfgMap *ConfigMap) SectionKeys(sName string) []string {
+	keys := make([]string, 0)
+	section, ok := (*cfgMap)[sName]
+	if !ok {
+		return keys
+	}
+	for k, _ := range section {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func (cfg *Config) Sections() []string {
+	sectionMap := make(map[string]bool)
+
+	sourceSections := cfg.source.Sections()
+	for _, section := range sourceSections {
+		sectionMap[section] = true
+	}
+
+	for section := range cfg.overrides {
+		sectionMap[section] = true
+	}
+
+	sections := make([]string, 0)
+	for k, _ := range sectionMap {
+		sections = append(sections, k)
+	}
+	return sections
+}
+
+func (cfg *Config) SectionKeys(sName string) []string {
+	keyMap := make(map[string]bool)
+
+	sourceKeys := cfg.source.SectionKeys(sName)
+	for _, key := range sourceKeys {
+		keyMap[key] = true
+	}
+
+	overrideSection, ok := cfg.overrides[sName]
+	if ok {
+		for key := range overrideSection {
+			keyMap[key] = true
+		}
+	}
+
+	keys := make([]string, 0)
+	for k, _ := range keyMap {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func (cfg *Config) AsMap() map[string]map[string]string {
+	configMap := make(map[string]map[string]string)
+	sections := cfg.Sections()
+	for _, section := range sections {
+		configMap[section] = make(map[string]string)
+		keys := cfg.SectionKeys(section)
+		for _, key := range keys {
+			configMap[section][key], _ = cfg.Get(section, key, "")
+		}
+	}
+	return configMap
+}
 
 func (cfg *Config) Override(sectionName, key, val string) {
 	section, ok := cfg.overrides[sectionName]

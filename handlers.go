@@ -42,12 +42,22 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
 			handleTest(g, w, r)
 			return
 		}
+	case "config":
+		{
+			handleConfig(g, w, r)
+			return
+		}
 	default:
 		{
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
 		}
 	}
+}
+
+func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
+	configMap := g.Cfg.AsMap()
+	g.SendJson(w, "config", configMap)
 }
 
 func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
