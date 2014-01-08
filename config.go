@@ -15,6 +15,7 @@ type Config interface {
 	GetInt64(sName, k string, def int64) (int64, bool)
 	GetBool(sName, k string, def bool) (bool, bool)
 	GetFloat32(sName, k string, def float32) (float32, bool)
+	GetList(sName, k string, def []string) ([]string, bool)
 }
 
 type ConfigMap map[string]Section
@@ -107,4 +108,19 @@ func (cfg *ConfigMap) GetFloat32(sName, k string, def float32) (float32, bool) {
 		return float32(r), true
 	}
 	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
+}
+func (cfg *ConfigMap) GetList(sName, k string, def []string) ([]string, bool) {
+	s, ok := map[string]Section(*cfg)[sName]
+	if !ok {
+		return def, false
+	}
+	vStr, ok := map[string]string(s)[k]
+	if !ok {
+		return def, false
+	}
+	v := strings.Split(vStr, ",")
+	for i := 0; i < len(v); i++ {
+		v[i] = strings.TrimSpace(v[i])
+	}
+	return v, true
 }
