@@ -2,6 +2,7 @@ package gop
 
 import (
 	"fmt"
+	"io/ioutil"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"io"
@@ -56,6 +57,27 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
 }
 
 func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
+	// We can be called with and without section+key
+	vars := mux.Vars(r)
+	if r.Method == "PUT" {
+		section := vars["section"]
+		key := vars["key"]
+		if section == "" {
+			http.Error(w, "No section in url", http.StatusBadRequest)
+			return
+		}
+		if key == "" {
+			http.Error(w, "No key in url", http.StatusBadRequest)
+			return
+		}
+		value, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read value: " + err.Error(), http.StatusInternalServerError)
+			return
+		}
+		g.Cfg.Override(section, key, string(value))
+	}
+	
 	configMap := g.Cfg.AsMap()
 	g.SendJson(w, "config", configMap)
 }
@@ -182,4 +204,5 @@ func handleTest(g *Req, w http.ResponseWriter, r *http.Request) {
 
 func (a *App) registerGopHandlers() {
 	a.HandleFunc("/gop/{action}", gopHandler)
+	a.HandleFunc("/gop/config/{section}/{key}", handleConfig)
 }
