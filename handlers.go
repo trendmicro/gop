@@ -2,10 +2,10 @@ package gop
 
 import (
 	"fmt"
-	"io/ioutil"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"runtime"
@@ -72,12 +72,12 @@ func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
 		}
 		value, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read value: " + err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to read value: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		g.Cfg.Override(section, key, string(value))
 	}
-	
+
 	configMap := g.Cfg.AsMap()
 	g.SendJson(w, "config", configMap)
 }

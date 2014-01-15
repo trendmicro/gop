@@ -18,12 +18,11 @@ type ConfigSource interface {
 }
 
 type Config struct {
-	source		ConfigSource
-	overrides 	map[string]map[string]string
+	source    ConfigSource
+	overrides map[string]map[string]string
 }
 
 type ConfigMap map[string]map[string]string
-
 
 func (a *App) loadAppConfigFile() {
 	// We do not have logging set up yet. We just panic() on error.
@@ -53,8 +52,8 @@ func (a *App) loadAppConfigFile() {
 		}
 	}
 	a.Cfg = Config{
-		source:		&configSource, 
-		overrides:	make(map[string]map[string]string),
+		source:    &configSource,
+		overrides: make(map[string]map[string]string),
 	}
 }
 
@@ -174,7 +173,6 @@ func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
 	// Not found, just punt it to the base
 	return cfg.source.Get(sectionName, key, def)
 }
-
 
 func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
 	v, found := cfg.Get(sName, k, "")
