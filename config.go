@@ -176,7 +176,7 @@ func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
 
 
 func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
-	v, found := cfg.source.Get(sName, k, "")
+	v, found := cfg.Get(sName, k, "")
 	if !found {
 		return def, false
 	}
@@ -187,7 +187,7 @@ func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
 	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
 }
 func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
-	v, found := cfg.source.Get(sName, k, "")
+	v, found := cfg.Get(sName, k, "")
 	if !found {
 		return def, false
 	}
@@ -198,7 +198,7 @@ func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
 	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
 }
 func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
-	v, found := cfg.source.Get(sName, k, "")
+	v, found := cfg.Get(sName, k, "")
 	if !found {
 		return def, false
 	}
@@ -209,7 +209,7 @@ func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
 	panic(fmt.Sprintf("Bad boolean config key %s: %s", k, v))
 }
 func (cfg *Config) GetFloat32(sName, k string, def float32) (float32, bool) {
-	v, found := cfg.source.Get(sName, k, "")
+	v, found := cfg.Get(sName, k, "")
 	if !found {
 		return def, false
 	}
@@ -220,7 +220,7 @@ func (cfg *Config) GetFloat32(sName, k string, def float32) (float32, bool) {
 	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
 }
 func (cfg *Config) GetList(sName, k string, def []string) ([]string, bool) {
-	vStr, found := cfg.source.Get(sName, k, "")
+	vStr, found := cfg.Get(sName, k, "")
 	if !found {
 		return def, false
 	}
