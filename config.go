@@ -2,6 +2,7 @@ package gop
 
 import (
 	"github.com/vaughan0/go-ini"
+	"time"
 
 	"fmt"
 	"os"
@@ -227,6 +228,17 @@ func (cfg *Config) GetList(sName, k string, def []string) ([]string, bool) {
 	v := strings.Split(vStr, ",")
 	for i := 0; i < len(v); i++ {
 		v[i] = strings.TrimSpace(v[i])
+	}
+	return v, true
+}
+func (cfg *Config) GetDuration(sName, k string, def time.Duration) (time.Duration, bool) {
+	vStr, found := cfg.Get(sName, k, "")
+	if !found {
+		return def, false
+	}
+	v, err := time.ParseDuration(vStr)
+	if err != nil {
+		return def, false
 	}
 	return v, true
 }
