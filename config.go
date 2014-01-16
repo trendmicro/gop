@@ -21,8 +21,9 @@ type ConfigSource interface {
 }
 
 type Config struct {
-	source    ConfigMap
-	overrides ConfigMap
+	source        ConfigMap
+	overrides     ConfigMap
+	overrideFname string
 }
 
 type ConfigMap map[string]map[string]string
@@ -42,7 +43,7 @@ func (a *App) getConfigFilename() string {
 	return configFname
 }
 
-func (cm *ConfigMap) loadFromIni(fname string) error {
+func (cm *ConfigMap) loadFromIniFile(fname string) error {
 	iniCfg, err := ini.LoadFile(fname)
 	if err != nil {
 		return err
@@ -56,7 +57,7 @@ func (cm *ConfigMap) loadFromIni(fname string) error {
 	return nil
 }
 
-func (cm *ConfigMap) loadFromJson(fname string) error {
+func (cm *ConfigMap) loadFromJsonFile(fname string) error {
 	overrideJsonBytes, err := ioutil.ReadFile(fname)
 	if err != nil {
 		return err
@@ -68,12 +69,20 @@ func (cm *ConfigMap) loadFromJson(fname string) error {
 	return nil
 }
 
+func (cm *ConfigMap) saveToJsonFile(fname string) error {
+	jsonBytes, err := json.Marshal(cm)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(fname, jsonBytes, 0644)
+}
+
 func (a *App) loadAppConfigFile() {
 	// We do not have logging set up yet. We just panic() on error.
 	configFname := a.getConfigFilename()
 
 	source := make(ConfigMap)
-	err := source.loadFromIni(configFname)
+	err := source.loadFromIniFile(configFname)
 	if err != nil {
 		// Can't log, it's all too early. This is fatal, tho
 		panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
@@ -81,7 +90,7 @@ func (a *App) loadAppConfigFile() {
 
 	overrides := make(ConfigMap)
 	overrideFname := configFname + ".override"
-	err = overrides.loadFromJson(overrideFname)
+	err = overrides.loadFromJsonFile(overrideFname)
 	if err != nil {
 		// Don't have logging yet, so use log. and hope
 		log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
@@ -90,8 +99,9 @@ func (a *App) loadAppConfigFile() {
 	}
 
 	a.Cfg = Config{
-		source:    source,
-		overrides: overrides,
+		source:        source,
+		overrides:     overrides,
+		overrideFname: overrideFname,
 	}
 }
 
@@ -133,6 +143,10 @@ func (cfgMap *ConfigMap) SectionKeys(sName string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (cfg *Config) saveOverrides() error {
+	return cfg.overrides.saveToJsonFile(cfg.overrideFname)
 }
 
 func (cfg *Config) Sections() []string {
@@ -196,6 +210,11 @@ func (cfg *Config) Override(sectionName, key, val string) {
 		section = cfg.overrides[sectionName]
 	}
 	section[key] = val
+	err := cfg.saveOverrides()
+	if err != nil {
+		log.Printf("Failed to save to override file [%s]: %s\n", cfg.overrideFname, err.Error())
+	}
+	return
 }
 
 func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
