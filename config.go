@@ -1,7 +1,10 @@
 package gop
 
 import (
+	"encoding/json"
 	"github.com/vaughan0/go-ini"
+	"io/ioutil"
+	"log"
 	"time"
 
 	"fmt"
@@ -18,15 +21,13 @@ type ConfigSource interface {
 }
 
 type Config struct {
-	source    ConfigSource
-	overrides map[string]map[string]string
+	source    ConfigMap
+	overrides ConfigMap
 }
 
 type ConfigMap map[string]map[string]string
 
-func (a *App) loadAppConfigFile() {
-	// We do not have logging set up yet. We just panic() on error.
-
+func (a *App) getConfigFilename() string {
 	rootEnvName := strings.ToUpper(a.ProjectName) + "_CFG_ROOT"
 	configRoot := os.Getenv(rootEnvName)
 	if configRoot == "" {
@@ -38,22 +39,59 @@ func (a *App) loadAppConfigFile() {
 	if configFname == "" {
 		configFname = configRoot + "/" + a.AppName + ".conf"
 	}
+	return configFname
+}
 
-	cfg, err := ini.LoadFile(configFname)
+func (cm *ConfigMap) loadFromIni(fname string) error {
+	iniCfg, err := ini.LoadFile(fname)
 	if err != nil {
-		// Can't log, it's all too early
+		return err
+	}
+	for section, m := range iniCfg {
+		for k, v := range m {
+			cm.Add(section, k, v)
+		}
+	}
+
+	return nil
+}
+
+func (cm *ConfigMap) loadFromJson(fname string) error {
+	overrideJsonBytes, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(overrideJsonBytes, cm)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *App) loadAppConfigFile() {
+	// We do not have logging set up yet. We just panic() on error.
+	configFname := a.getConfigFilename()
+
+	source := make(ConfigMap)
+	err := source.loadFromIni(configFname)
+	if err != nil {
+		// Can't log, it's all too early. This is fatal, tho
 		panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
 	}
 
-	configSource := make(ConfigMap)
-	for section, m := range cfg {
-		for k, v := range m {
-			configSource.Add(section, k, v)
-		}
+	overrides := make(ConfigMap)
+	overrideFname := configFname + ".override"
+	err = overrides.loadFromJson(overrideFname)
+	if err != nil {
+		// Don't have logging yet, so use log. and hope
+		log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
+		// Don't want to fail here, just continue without overrides
+		err = nil
 	}
+
 	a.Cfg = Config{
-		source:    &configSource,
-		overrides: make(map[string]map[string]string),
+		source:    source,
+		overrides: overrides,
 	}
 }
 
