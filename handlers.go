@@ -75,7 +75,7 @@ func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to read value: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		g.Cfg.Override(section, key, string(value))
+		g.Cfg.PersistentOverride(section, key, string(value))
 	}
 
 	configMap := g.Cfg.AsMap()

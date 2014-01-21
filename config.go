@@ -21,9 +21,10 @@ type ConfigSource interface {
 }
 
 type Config struct {
-	source        ConfigMap
-	overrides     ConfigMap
-	overrideFname string
+	source              ConfigMap
+	persistentOverrides ConfigMap
+	transientOverrides  ConfigMap
+	overrideFname       string
 }
 
 type ConfigMap map[string]map[string]string
@@ -88,9 +89,9 @@ func (a *App) loadAppConfigFile() {
 		panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
 	}
 
-	overrides := make(ConfigMap)
+	persistentOverrides := make(ConfigMap)
 	overrideFname := configFname + ".override"
-	err = overrides.loadFromJsonFile(overrideFname)
+	err = persistentOverrides.loadFromJsonFile(overrideFname)
 	if err != nil {
 		// Don't have logging yet, so use log. and hope
 		log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
@@ -99,9 +100,10 @@ func (a *App) loadAppConfigFile() {
 	}
 
 	a.Cfg = Config{
-		source:        source,
-		overrides:     overrides,
-		overrideFname: overrideFname,
+		source:              source,
+		persistentOverrides: persistentOverrides,
+		transientOverrides:  make(ConfigMap),
+		overrideFname:       overrideFname,
 	}
 }
 
@@ -145,8 +147,8 @@ func (cfgMap *ConfigMap) SectionKeys(sName string) []string {
 	return keys
 }
 
-func (cfg *Config) saveOverrides() error {
-	return cfg.overrides.saveToJsonFile(cfg.overrideFname)
+func (cfg *Config) savePersistentOverrides() error {
+	return cfg.persistentOverrides.saveToJsonFile(cfg.overrideFname)
 }
 
 func (cfg *Config) Sections() []string {
@@ -156,8 +158,10 @@ func (cfg *Config) Sections() []string {
 	for _, section := range sourceSections {
 		sectionMap[section] = true
 	}
-
-	for section := range cfg.overrides {
+	for section := range cfg.persistentOverrides {
+		sectionMap[section] = true
+	}
+	for section := range cfg.transientOverrides {
 		sectionMap[section] = true
 	}
 
@@ -176,7 +180,14 @@ func (cfg *Config) SectionKeys(sName string) []string {
 		keyMap[key] = true
 	}
 
-	overrideSection, ok := cfg.overrides[sName]
+	overrideSection, ok := cfg.persistentOverrides[sName]
+	if ok {
+		for key := range overrideSection {
+			keyMap[key] = true
+		}
+	}
+
+	overrideSection, ok = cfg.transientOverrides[sName]
 	if ok {
 		for key := range overrideSection {
 			keyMap[key] = true
@@ -203,30 +214,40 @@ func (cfg *Config) AsMap() map[string]map[string]string {
 	return configMap
 }
 
-func (cfg *Config) Override(sectionName, key, val string) {
-	section, ok := cfg.overrides[sectionName]
+func (cfg *Config) PersistentOverride(sectionName, key, val string) {
+	section, ok := cfg.persistentOverrides[sectionName]
 	if !ok {
-		cfg.overrides[sectionName] = make(map[string]string)
-		section = cfg.overrides[sectionName]
+		cfg.persistentOverrides[sectionName] = make(map[string]string)
+		section = cfg.persistentOverrides[sectionName]
 	}
 	section[key] = val
-	err := cfg.saveOverrides()
+	err := cfg.savePersistentOverrides()
 	if err != nil {
 		log.Printf("Failed to save to override file [%s]: %s\n", cfg.overrideFname, err.Error())
 	}
 	return
 }
 
-func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
-	section, ok := cfg.overrides[sectionName]
-	if ok {
-		// Ooh...we have a section
-		val, ok := section[key]
-		if ok {
-			// Oh! and a key. Lets have that then
-			return val, true
-		}
+func (cfg *Config) TransientOverride(sectionName, key, val string) {
+	section, ok := cfg.transientOverrides[sectionName]
+	if !ok {
+		cfg.transientOverrides[sectionName] = make(map[string]string)
+		section = cfg.transientOverrides[sectionName]
 	}
+	section[key] = val
+	return
+}
+
+func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
+	str, found := cfg.transientOverrides.Get(sectionName, key, def)
+	if found {
+		return str, true
+	}
+	str, found = cfg.persistentOverrides.Get(sectionName, key, def)
+	if found {
+		return str, true
+	}
+
 	// Not found, just punt it to the base
 	return cfg.source.Get(sectionName, key, def)
 }
