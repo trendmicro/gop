@@ -25,6 +25,7 @@ type Config struct {
 	persistentOverrides ConfigMap
 	transientOverrides  ConfigMap
 	overrideFname       string
+	onChangeCallbacks   []func(cfg *Config)
 }
 
 type ConfigMap map[string]map[string]string
@@ -104,6 +105,7 @@ func (a *App) loadAppConfigFile() {
 		persistentOverrides: persistentOverrides,
 		transientOverrides:  make(ConfigMap),
 		overrideFname:       overrideFname,
+		onChangeCallbacks:   make([]func(cfg *Config), 0),
 	}
 }
 
@@ -145,6 +147,17 @@ func (cfgMap *ConfigMap) SectionKeys(sName string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (cfg *Config) AddOnChangeCallback(f func(cfg *Config)) {
+	cfg.onChangeCallbacks = append(cfg.onChangeCallbacks, f)
+}
+
+func (cfg *Config) notifyChange() {
+	for _, f := range cfg.onChangeCallbacks {
+		// These should be quick!
+		f(cfg)
+	}
 }
 
 func (cfg *Config) savePersistentOverrides() error {
@@ -225,6 +238,7 @@ func (cfg *Config) PersistentOverride(sectionName, key, val string) {
 	if err != nil {
 		log.Printf("Failed to save to override file [%s]: %s\n", cfg.overrideFname, err.Error())
 	}
+	cfg.notifyChange()
 	return
 }
 
@@ -235,6 +249,7 @@ func (cfg *Config) TransientOverride(sectionName, key, val string) {
 		section = cfg.transientOverrides[sectionName]
 	}
 	section[key] = val
+	cfg.notifyChange()
 	return
 }
 
