@@ -59,9 +59,9 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) {
 func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
 	// We can be called with and without section+key
 	vars := mux.Vars(r)
+	section := vars["section"]
+	key := vars["key"]
 	if r.Method == "PUT" {
-		section := vars["section"]
-		key := vars["key"]
 		if section == "" {
 			http.Error(w, "No section in url", http.StatusBadRequest)
 			return
@@ -78,8 +78,31 @@ func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) {
 		g.Cfg.PersistentOverride(section, key, string(value))
 	}
 
-	configMap := g.Cfg.AsMap()
-	g.SendJson(w, "config", configMap)
+	if section != "" {
+		if key != "" {
+			strVal, found := g.Cfg.Get(section, key, "")
+			if found {
+				g.SendJson(w, "config", strVal)
+				return
+			} else {
+				http.Error(w, "No such key in section", http.StatusNotFound)
+				return
+			}
+		} else {
+			sectionKeys := g.Cfg.SectionKeys(section)
+			sectionMap := make(map[string]string)
+			for _, key := range sectionKeys {
+				strVal, _ := g.Cfg.Get(section, key, "")
+				sectionMap[key] = strVal
+			}
+			g.SendJson(w, "config", sectionMap)
+			return
+		}
+	} else {
+		configMap := g.Cfg.AsMap()
+		g.SendJson(w, "config", configMap)
+		return
+	}
 }
 
 func handleMem(g *Req, w http.ResponseWriter, r *http.Request) {
@@ -204,5 +227,6 @@ func handleTest(g *Req, w http.ResponseWriter, r *http.Request) {
 
 func (a *App) registerGopHandlers() {
 	a.HandleFunc("/gop/{action}", gopHandler)
+	a.HandleFunc("/gop/config/{section}", handleConfig)
 	a.HandleFunc("/gop/config/{section}/{key}", handleConfig)
 }
