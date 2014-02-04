@@ -1,8 +1,9 @@
 package test
 
 import (
-	"testing"
 	"fmt"
+	"reflect"
+	"testing"
 )
 
 func Assert(t *testing.T, assertion bool, goodMsg, badMsg string) {
@@ -33,6 +34,6 @@ func ErrNotNil(t *testing.T, got error, msg string) {
 	Assert(t, got != nil, msg, msg+" err: "+gotErr)
 }
 
-func Is(t *testing.T, got interface{}, expected interface{}, what string){
-	Assert(t, got==expected, what+" - expected and got "+fmt.Sprint(expected), what+" got "+fmt.Sprint(got)+", expected "+fmt.Sprint(expected))
+func Is(t *testing.T, got interface{}, expected interface{}, what string) {
+	Assert(t, reflect.DeepEqual(got, expected), what+" - expected and got "+fmt.Sprint(expected), what+" got "+fmt.Sprint(got)+", expected "+fmt.Sprint(expected))
 }
