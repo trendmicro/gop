@@ -92,12 +92,15 @@ func (a *App) loadAppConfigFile() {
 
 	persistentOverrides := make(ConfigMap)
 	overrideFname := configFname + ".override"
-	err = persistentOverrides.loadFromJsonFile(overrideFname)
-	if err != nil {
-		// Don't have logging yet, so use log. and hope
-		log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
-		// Don't want to fail here, just continue without overrides
-		err = nil
+	fi, err := os.Stat(overrideFname)
+	if err == nil && fi.Size() > 0 {
+		err = persistentOverrides.loadFromJsonFile(overrideFname)
+		if err != nil {
+			// Don't have logging yet, so use log. and hope
+			log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
+			// Don't want to fail here, just continue without overrides
+			err = nil
+		}
 	}
 
 	a.Cfg = Config{
