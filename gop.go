@@ -228,7 +228,7 @@ func (g *Req) finished() {
 	if reqDuration.Seconds() > float64(slowReqSecs) {
 		g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
 	} else {
-		g.Info("Request took %s", reqDuration)
+		g.Debug("Request took %s", reqDuration)
 	}
 
 	// Tidy up request finalistion (requestMaker, req.finish() method, app.requestFinished())
