@@ -136,10 +136,8 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 		req.writer.size,
 		quote(referrerLine),
 		quote(uaLine))
-	n, err := req.app.accessLog.WriteString(logLine)
+	_, err := req.app.accessLog.WriteString(logLine)
 	if err != nil {
 		a.Error("Failed to write to access log: %s", err.Error())
-	} else {
-		a.Error("JB wrote %d bytes to access log", n)
 	}
 }
