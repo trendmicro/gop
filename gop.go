@@ -5,10 +5,9 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"github.com/jbert/timber"
+	"os"
 
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"runtime"
@@ -19,7 +18,7 @@ import (
 
 // Stuff we include in both App and Req, for convenience
 type common struct {
-	timber.Logger
+	Logger
 	Cfg     Config
 	Stats   StatsdClient
 	Decoder *schema.Decoder
@@ -30,17 +29,19 @@ type common struct {
 type App struct {
 	common
 
-	AppName       string
-	ProjectName   string
-	GorillaRouter *mux.Router
-	listener      net.Listener
-	wantReq       chan *wantReq
-	doneReq       chan *Req
-	getReqs       chan chan *Req
-	startTime     time.Time
-	currentReqs   int
-	totalReqs     int
-	doingGraceful bool
+	AppName                  string
+	ProjectName              string
+	GorillaRouter            *mux.Router
+	listener                 net.Listener
+	wantReq                  chan *wantReq
+	doneReq                  chan *Req
+	getReqs                  chan chan *Req
+	startTime                time.Time
+	currentReqs              int
+	totalReqs                int
+	doingGraceful            bool
+	accessLog                *os.File
+	suppressedAccessLogLines int
 }
 
 // Used for RPC to get a new request
@@ -60,6 +61,7 @@ type Req struct {
 	r            *http.Request
 	RealRemoteIP string
 	IsHTTPS      bool
+	writer       *responseWriter
 }
 
 // The function signature your http handlers need.
@@ -102,7 +104,7 @@ func Init(projectName, appName string) *App {
 // Clean shutdown
 func (a *App) Finish() {
 	// Start a log flush
-	timber.Close()
+	a.closeLogging()
 }
 
 //
@@ -224,6 +226,12 @@ func (g *Req) finished() {
 	context.Clear(g.r) // Cleanup  gorilla stash
 
 	reqDuration := time.Since(g.startTime)
+
+	g.app.WriteAccessLog(g, reqDuration)
+
+	codeStatsKey := fmt.Sprintf("http_status.%d", g.writer.code)
+	g.app.Stats.Inc(codeStatsKey, 1)
+
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
 	if reqDuration.Seconds() > float64(slowReqSecs) {
 		g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
@@ -255,56 +263,6 @@ func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
 	w.Write([]byte("\n"))
-}
-
-func (a *App) initLogging() {
-
-	defaultLogPattern := "[%D %T] [%L] %M"
-	filenamesByDefault, _ := a.Cfg.GetBool("gop", "log_filename", false)
-	if filenamesByDefault {
-		defaultLogPattern = "[%D %T] [%L] %S %M"
-	}
-	logPattern, _ := a.Cfg.Get("gop", "log_pattern", defaultLogPattern)
-
-	// If set, hack all logging to stdout for dev
-	forceStdout, _ := a.Cfg.GetBool("gop", "stdout_only_logging", false)
-	configLogger := timber.ConfigLogger{
-		LogWriter: new(timber.ConsoleWriter),
-		Level:     timber.INFO,
-		Formatter: timber.NewPatFormatter(logPattern),
-	}
-
-	if !forceStdout {
-		defaultLogDir, _ := a.Cfg.Get("gop", "log_dir", "/var/log")
-		defaultLogFname := defaultLogDir + "/" + a.ProjectName + "/" + a.AppName + ".log"
-		logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
-
-		newWriter, err := timber.NewFileWriter(logFname)
-		if err != nil {
-			panic(fmt.Sprintf("Can't open log file: %s", err))
-		}
-		configLogger.LogWriter = newWriter
-	}
-
-	logLevelStr, _ := a.Cfg.Get("gop", "log_level", "INFO")
-	logLevelStr = strings.ToUpper(logLevelStr)
-	for logLevel, levelStr := range timber.LongLevelStrings {
-		if logLevelStr == levelStr {
-			configLogger.Level = timber.Level(logLevel)
-			break
-		}
-	}
-
-	// *Don't* create a NewTImber here. Logs are only flushed on Close() and if we
-	// have more than one timber, it's easy to only Close() one of them...
-	l := timber.Global
-	l.AddLogger(configLogger)
-	a.Logger = l
-
-	// Set up the default go logger to go here too, so 3rd party
-	// module logging plays nicely
-	log.SetFlags(0)
-	log.SetOutput(l)
 }
 
 func (a *App) watchdog() {
@@ -364,11 +322,11 @@ func (a *App) watchdog() {
 	}
 }
 
+// Keep track of the status code and #bytes we write, so we can log and statsd on them
 type responseWriter struct {
 	http.ResponseWriter
-	app       *App
-	code      int
-	notedCode bool
+	size int
+	code int
 }
 
 // Satisfy the interface
@@ -377,7 +335,7 @@ func (w *responseWriter) Header() http.Header {
 }
 
 func (w *responseWriter) Write(buf []byte) (int, error) {
-	w.noteCode()
+	w.size += len(buf)
 	return w.ResponseWriter.Write(buf)
 }
 
@@ -387,16 +345,7 @@ func (w *responseWriter) CloseNotify() <-chan bool {
 
 func (w *responseWriter) WriteHeader(code int) {
 	w.code = code
-	w.noteCode()
 	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *responseWriter) noteCode() {
-	if !w.notedCode {
-		statsKey := fmt.Sprintf("http_status.%d", w.code)
-		w.app.Stats.Inc(statsKey, 1)
-		w.notedCode = true
-	}
 }
 
 func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
@@ -406,7 +355,8 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 		defer func() {
 			a.doneReq <- gopRequest
 		}()
-		gopWriter := responseWriter{code: 200, app: a, ResponseWriter: w}
+		gopWriter := responseWriter{code: 200, ResponseWriter: w}
+		gopRequest.writer = &gopWriter
 
 		err := r.ParseForm()
 		if err != nil {
