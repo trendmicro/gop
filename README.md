@@ -1,123 +1,100 @@
-# GOP
+# Gop
 
-## Overview
+Gop (Go-in-Production) is an application container framework.
 
-GOP (GOlang-in-Production) is a collection of code intended to ease writing production-safe golang
-applications, particularly web applications.
+Gop makes it easier to write, deploy and maintain Go applications in a
+production environment.
 
-An app initialises GOP with a project name and appname and will then get access to various facilities
-in a standardised way.
+Gop strongly follows convention-over-configuration principles. Things
+like file locations and formats are standardized wherever it makes
+sense for them to be.
 
 ## Features
 
-Provided facilities are:
+Gop applications get the following features:
 
-### Logging
+* Config file
+* Logging
+* HTTP microframework
+* Graceful restarts
+* Process manager
+* Resource tracking and limits
+* Runtime config overrides
+* Introspection
+* Go runtime control
 
-Log4j-like logging (no dynamic reconfig or per package) to /var/log/<project>/<app>log
+More information about each of these features is [below](#contents).
 
-### Configuration
+## Getting started
 
-An ini-file loaded from /etc/<project>/<app>.conf
+Gop requires **go 1.2** or higher.
 
-A [gop] section in this file controls various settings for the behaviour of GOP itself.
+First, install the gop package:
 
-### Graceful restart
+    go get github.com/trendmicro/gop
 
-Sending a SIGQUIT to the process will initiate a graceful restart. This will cause a new child to
-fork and take over the listening socket. The parent will continue to run until any pending requests
-have been processed, or a timeout is reached, and then exit.
+Gop applications are identified by a **project name** and an **app
+name**. Let's imagine our app is called *helloworld* and is part of a
+project called *gopexamples*.
 
-### Resource tracking and limits
+Create `helloworld.go`:
 
-A watchdog writes basic resource and activity stats to the log file at a (configurable) period.
+~~~go
+package main
 
-### Introspection and test requests
+import (
+	"github.com/trendmicro/gop"
+	"net/http"
+)
 
-/gop/request-status will return information about the currently running requests
+// hello is a basic HTTP handler
+func hello(g *gop.Req, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte("Hello, world!\n"))
+}
 
-/gop/test?secs=X&kbytes=Y will allocate and touch Y bytes and then sleep for X seconds.
+// main initializes the gop app
+func main() {
+	app := gop.Init("gopexamples", "helloworld")
+	app.HandleFunc("/hello", hello)
+	app.Run()
+}
+~~~
 
-## Future work
+Every gop app has a config file.
 
-### Foreground mode
+Create `/etc/gopexamples/helloworld.conf`. The filename is
+important. It must match the project and app names of your app.
 
-Reconcile graceful restart with a process manager
+~~~ini
+[gop]
+listen_addr=:8888
+stdout_only_logging=true
+~~~
 
-### Harakiri and resource management
+And run your app:
 
-~~ (DONE) Restart after handling X requests or Y seconds~~
+    go run helloworld.go
 
-~~ (DONE) Track number of fds in use (write out in the TICK messages) and restart when limit hit~~
+You should be able to access your handler at <http://localhost:8888/hello>.
 
-~~ (DONE) Force GC every N requests~~
+## Getting help
 
-~~ (DONE) /gop/mem - POST to allow 'gc now' and runteim.debug.SetGCPercent~~
+Visit the [Gop website](http://trendmicro.github.io/gop).
 
-### Logging improvements
+Issues and bugs can be reported at the
+[Github issue tracker for gop](https://github.com/trendmicro/gop/issues).
 
-Log rotation
+## Contents
 
-Log config reload
+* [Configuration](doc/configuration.md)
+* [HTTP handlers](doc/http_handlers.md)
+* [Logging](doc/logging.md)
+* [Process management](doc/process_management.md)
+* [Resource management](doc/resource_management.md)
+* [Introspection & management interface](doc/gop_urls.md)
 
-Detail log setting by some mixture of package/func/file/line
+## Authors
 
-### Permissions
-
-Set UID and GUID from config at startup (default to project name)
-
-[partially done. user=<username> honoured in gop config, falback of appname, projectname]
-
-### Remote endpoint
-
-~~ (DONE) Extract X-Forwarded-For and X-Forwarded-Proto info from nginx. Expose to app. Expose in request-status.~~
-
-### IPv6
-
-Test ip6 access behind nginx
-
-### Stats
-
-~~ (DONE) Decorate with specific GOP statsd measure~~
-
-Add more detailed introspection:
-
-~~ (DONE) - full GC stats)~~
-
-~~ (DONE) - number of goros~~
-
-~~ (DONE) - full goro stack dump?~~
-
-### Signal handling
-
-- log re-open
-
-- config reload
-
-- clean shutdown
-
-### Abnormal request tracking
-
-- ~~(DONE) log slow requests~~
-
-- log failing requests
-
-## TODO
-
-Additional TODO bugs:
-
-* set http timeouts (avoid fd leak over time)
-
-* Track mean cpu-secs/request figure (and output in TICK and request-status)
-
-* ~~(DONE) Track request duration (and output in request-status)~~
-
-* Don't allow graceful restart within N secs of process start (and/or if there is already a graceful runnning in another proc)
-
-* change GOP handler to take two args - gop.Request and gop.Response (as per http), which embed the http versions
-and override as needed (e.g. setting status code). Once we've overridden to see status codes, add in commented-out statsd
-reporting on status codes. And add "log on 5xx".
-
-* ~~(DONE) add stdout-logging override for development~~
-
-* ~~(DONE) add 'sent statsd op X' debug logging for development~~
+* John Berthels
+* Mark Boyd
