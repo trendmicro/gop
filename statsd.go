@@ -2,6 +2,8 @@ package gop
 
 import (
 	"github.com/cactus/go-statsd-client/statsd"
+	"strings"
+	"os"
 )
 
 type StatsdClient struct {
@@ -12,7 +14,8 @@ type StatsdClient struct {
 
 func (a *App) initStatsd() {
 	statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
-	statsdPrefix := a.AppName + "." + a.ProjectName
+	hostname, _ := os.Hostname()
+	statsdPrefix := strings.Join([]string{a.ProjectName, a.AppName, hostname}, ".")
 	client, err := statsd.New(statsdHostport, statsdPrefix)
 	if err != nil {
 		// App will probably fall over due to nil client. That's OK.
