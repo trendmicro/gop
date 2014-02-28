@@ -184,10 +184,10 @@ func (a *App) requestMaker() {
 				}
 				openReqs[req.id] = &req
 				nextReqId++
-				a.Stats.Inc("http_reqs", 1)
-				a.Stats.Inc("current_http_reqs", 1)
 				a.totalReqs++
 				a.currentReqs++
+				a.Stats.Gauge("http_reqs", int64(a.totalReqs))
+				a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
 				wantReq.reply <- &req
 			}
 		case doneReq := <-a.doneReq:
@@ -196,9 +196,9 @@ func (a *App) requestMaker() {
 				if !found {
 					a.Error("BUG! Unknown request id [%d] being retired")
 				} else {
-					a.Stats.Dec("current_http_reqs", 1)
 					doneReq.finished()
 					a.currentReqs--
+					a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
 					delete(openReqs, doneReq.id)
 				}
 			}
