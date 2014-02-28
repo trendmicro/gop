@@ -254,15 +254,15 @@ func (g *Req) finished() {
 }
 
 // Send sends the given []byte with the specified MIME type to the
-// specified ResponseWriter
+// specified ResponseWriter. []byte must be in UTF-8 encoding.
 func (g *Req) Send(w http.ResponseWriter, mimetype string, v []byte) {
-	w.Header().Set("Content-Type", mimetype)
+	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
 	w.Write(v)
 }
 
-// SendText sends the given string with the mimetype "text/plain"
-func (g *Req) SendText(w http.ResponseWriter, v string) {
-	g.Send(w, "text/plain", []byte(v))
+// SendText sends the given []byte with the mimetype "text/plain"
+func (g *Req) SendText(w http.ResponseWriter, v []byte) {
+	g.Send(w, "text/plain", v)
 }
 
 // SendHtml sends the given []byte with the mimetype "text/html"
