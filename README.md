@@ -49,8 +49,7 @@ import (
 
 // hello is a basic HTTP handler
 func hello(g *gop.Req, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("Hello, world!\n"))
+	g.SendText(w, "Hello, world!\n")
 }
 
 // main initializes the gop app

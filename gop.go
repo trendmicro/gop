@@ -253,6 +253,26 @@ func (g *Req) finished() {
 	}
 }
 
+// Send sends the given []byte with the specified MIME type to the
+// specified ResponseWriter
+func (g *Req) Send(w http.ResponseWriter, mimetype string, v []byte) {
+	w.Header().Set("Content-Type", mimetype)
+	w.Write(v)
+}
+
+// SendText sends the given string with the mimetype "text/plain"
+func (g *Req) SendText(w http.ResponseWriter, v string) {
+	g.Send(w, "text/plain", []byte(v))
+}
+
+// SendHtml sends the given []byte with the mimetype "text/html"
+func (g *Req) SendHtml(w http.ResponseWriter, v []byte) {
+	g.Send(w, "text/html", v)
+}
+
+// SendJson marshals the given v into JSON and sends it with the
+// mimetype "application/json". what is a human-readable name for the
+// thing being marshalled.
 func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
 	json, err := json.Marshal(v)
 	if err != nil {
@@ -260,9 +280,7 @@ func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
 		http.Error(w, "Failed to encode json: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(json)
-	w.Write([]byte("\n"))
+	g.Send(w, "application/json", append(json, '\n'))
 }
 
 func (a *App) watchdog() {
