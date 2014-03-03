@@ -336,3 +336,18 @@ func (cfg *Config) GetDuration(sName, k string, def time.Duration) (time.Duratio
 	}
 	return v, true
 }
+func (cfg *Config) GetMap(sName, kPrefix string, def map[string]string) (map[string]string, bool) {
+	keys := cfg.SectionKeys(sName)
+	v := make(map[string]string)
+	for _, k := range keys {
+		if strings.HasPrefix(k, kPrefix) {
+			kTrimmed := strings.TrimPrefix(k, kPrefix)
+			v[kTrimmed], _ = cfg.Get(sName, k, "")
+		}
+	}
+	found := len(v) > 0
+	if !found {
+		return def, false
+	}
+	return v, true
+}
