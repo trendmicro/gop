@@ -30,15 +30,23 @@ func (a *App) initLogging() {
 	}
 
 	defaultLogDir, _ := a.Cfg.Get("gop", "log_dir", "/var/log")
+	fellbackToCWD := false
+	logDir := defaultLogDir + "/" + a.ProjectName
 	if !forceStdout {
-		defaultLogFname := defaultLogDir + "/" + a.ProjectName + "/" + a.AppName + ".log"
+		defaultLogFname := logDir + "/" + a.AppName + ".log"
 		logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
 
 		newWriter, err := timber.NewFileWriter(logFname)
-		if err != nil {
-			panic(fmt.Sprintf("Can't open log file: %s", err))
+		_, dirExistsErr := os.Stat(logDir)
+		if dirExistsErr != nil && os.IsNotExist(dirExistsErr) {
+			// Carry on with stdout logging, but remember to mention it
+			fellbackToCWD = true
+		} else {
+			if err != nil {
+				panic(fmt.Sprintf("Can't open log file: %s", err))
+			}
+			configLogger.LogWriter = newWriter
 		}
-		configLogger.LogWriter = newWriter
 	}
 
 	logLevelStr, _ := a.Cfg.Get("gop", "log_level", "INFO")
@@ -71,6 +79,10 @@ func (a *App) initLogging() {
 		if err != nil {
 			l.Error("Can't open access log; %s", err.Error())
 		}
+	}
+
+	if fellbackToCWD {
+		l.Error("Logging directory [%s] does not exist - logging to stdout", logDir)
 	}
 }
 
