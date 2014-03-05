@@ -30,11 +30,16 @@ type Config struct {
 
 type ConfigMap map[string]map[string]string
 
-func (a *App) getConfigFilename() string {
+func (a *App) getConfigFilename(forceCurrentWorkingDir bool) string {
+
 	rootEnvName := strings.ToUpper(a.ProjectName) + "_CFG_ROOT"
 	configRoot := os.Getenv(rootEnvName)
 	if configRoot == "" {
 		configRoot = "/etc/" + a.ProjectName
+	}
+
+	if forceCurrentWorkingDir {
+		configRoot = "."
 	}
 
 	fileEnvName := strings.ToUpper(a.ProjectName) + "_" + strings.ToUpper(a.AppName) + "_CFG_FILE"
@@ -42,6 +47,7 @@ func (a *App) getConfigFilename() string {
 	if configFname == "" {
 		configFname = configRoot + "/" + a.AppName + ".conf"
 	}
+
 	return configFname
 }
 
@@ -81,13 +87,21 @@ func (cm *ConfigMap) saveToJsonFile(fname string) error {
 
 func (a *App) loadAppConfigFile() {
 	// We do not have logging set up yet. We just panic() on error.
-	configFname := a.getConfigFilename()
-
 	source := make(ConfigMap)
+
+	configFname := a.getConfigFilename(false)
 	err := source.loadFromIniFile(configFname)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		// Can't log, it's all too early. This is fatal, tho
 		panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
+	}
+
+	// Try again in cwd
+	configFname = a.getConfigFilename(true)
+	err = source.loadFromIniFile(configFname)
+	if err != nil {
+		// Can't log, it's all too early. This is fatal, tho
+		panic(fmt.Sprintf("Can't load config file [%s] after fallback to cwd: %s", configFname, err.Error()))
 	}
 
 	persistentOverrides := make(ConfigMap)
