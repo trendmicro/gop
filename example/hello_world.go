@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/trendmicro/gop"
 	"fmt"
+	"os"
 )
 
 type MyApp struct {
@@ -22,9 +23,26 @@ func main() {
 		return req.SendText([]byte("Hello from " + myApp.name))
 	})
 
-	// Errors can be handled..
+	// HTTP Errors can be handled..
 	app.HandleFunc("/notthere", func(req *gop.Req) error {
 		return gop.NotFound(fmt.Sprintf("%s says there's nobody home", myApp.name))
+	})
+
+	// As can 'internal' errors
+	app.HandleFunc("/deeperproblem", func(req *gop.Req) error {
+		_, err := os.Stat("/tmp/mustnotexist")
+		return err
+	})
+
+	// And deepseated personal issues
+	app.HandleFunc("/nerfherder", func(req *gop.Req) error {
+		panic("I have a bad feeling about this")
+	})
+
+	// And deepseated personal issues
+	app.HandleFunc("/porkins", func(req *gop.Req) error {
+		req.SendText([]byte("Writing away"))
+		panic("You can't panic now!?")
 	})
 
 	app.Run()

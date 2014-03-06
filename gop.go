@@ -408,7 +408,63 @@ func (w *responseWriter) HasWritten() bool {
 	return w.size > 0
 }
 
+func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage string) {
+	r := recover()
+	if r == nil {
+		// We're only here to handle a panic
+		return
+	}
+
+	// If we can get a string out of the recovered data, do so
+	var recoveredMessage string
+	switch r := r.(type) {
+	case error:
+		recoveredMessage = r.Error()
+	case fmt.Stringer:
+		recoveredMessage = r.String()
+	default:
+		recoveredMessage = fmt.Sprintf("Unrecognised error: %v", r)
+	}
+
+	// Use custom panic message if we have one
+	body := panicMessage
+	if body == "" {
+		body = "PANIC: " + recoveredMessage
+	}
+
+	if showBacktrace {
+		g.Error("PANIC - sending backtrace to client")
+		bufSize := 4096
+		buf := make([]byte, bufSize)
+		for {
+			numWritten := runtime.Stack(buf, showAllInBacktrace)
+			if numWritten < bufSize {
+				break
+			}
+			bufSize *= 2
+		}
+		body += "\n\n" + string(buf)
+	} else {
+		g.Error("PANIC - sending info to client")
+	}
+
+	if g.W.HasWritten() {
+		g.Error("PANIC after handler had written data: %s", body)
+	} else {
+		// Build an error to write
+		httpErr := HTTPError{
+			Code: http.StatusInternalServerError,
+			Body: body,
+		}
+		httpErr.Write(g.W)
+	}
+}
+
 func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
+	panicMessage, _ := a.Cfg.Get("gop", "panic_message", "")
+	showBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace", false)
+	showAllInBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace_all_goros", true)
+
 	// Wrap the handler, so we can do before/after logic
 	f := func(w http.ResponseWriter, r *http.Request) {
 		gopRequest := a.getReq(r)
@@ -425,12 +481,17 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 			//          return
 		}
 
+		// Panic handler
+		defer dealWithPanic(gopRequest, showBacktrace, showAllInBacktrace, panicMessage)
 		// Pass in the gop, for logging, cfg etc
 		err = h(gopRequest)
 		if err != nil {
 			httpErr, ok := err.(HTTPError)
 			if !ok {
-				httpErr = HTTPError{Code: http.StatusInternalServerError, Body: "Internal error: " + err.Error()}
+				httpErr = HTTPError{
+					Code: http.StatusInternalServerError,
+					Body: "Internal error: " + err.Error(),
+				}
 			}
 			if gopWriter.HasWritten() {
 				// Ah. We have an error we'd like to send. But it's too late.
