@@ -1,3 +1,15 @@
+/*
+	GOP "Go in Production" is an attempt to provide a useful set of services for running
+	(primarily http) applications in production service.
+
+	This includes:
+		- configuration
+		- logging
+		- statsd integration
+		- signal handling
+		- resource management
+		- basic web framework
+*/
 package gop
 
 import (
@@ -24,8 +36,7 @@ type common struct {
 	Decoder *schema.Decoder
 }
 
-// Represents a managed gop app. Returned by init.
-// Embeds logging, provides .Cfg for configuration access.
+// Represents a gop application. Create with gop.Init(projectName, applicationName)
 type App struct {
 	common
 
@@ -44,11 +55,8 @@ type App struct {
 	suppressedAccessLogLines int
 }
 
-// Used for RPC to get a new request
-type wantReq struct {
-	r     *http.Request
-	reply chan *Req
-}
+// The function signature your http handlers need.
+type HandlerFunc func(g *Req) error
 
 // Per request struct. has convenience references to functionality
 // in the app singleton. Passed into the request handler.
@@ -86,25 +94,30 @@ var ErrNotFound HTTPError = HTTPError{Code: http.StatusNotFound}
 var ErrBadRequest HTTPError = HTTPError{Code: http.StatusBadRequest}
 var ErrServerError HTTPError = HTTPError{Code: http.StatusInternalServerError}
 
+// Helper to generate a NotFound HTTPError
 func NotFound(body string) error {
 	err := ErrNotFound
 	err.Body = body
 	return error(err)
 }
+// Helper to generate a BadRequest HTTPError
 func BadRequest(body string) error {
 	err := ErrBadRequest
 	err.Body = body
 	return error(err)
 }
-
+// Helper to generate an InternalServerError HTTPError
 func ServerError(body string) error {
 	err := ErrServerError
 	err.Body = body
 	return error(err)
 }
 
-// The function signature your http handlers need.
-type HandlerFunc func(g *Req) error
+// Used for RPC to get a new request
+type wantReq struct {
+	r     *http.Request
+	reply chan *Req
+}
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
@@ -140,7 +153,7 @@ func Init(projectName, appName string) *App {
 	return app
 }
 
-// Clean shutdown
+// Shut down the app cleanly. (Needed to flush logs)
 func (a *App) Finish() {
 	// Start a log flush
 	a.closeLogging()
