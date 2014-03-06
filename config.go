@@ -96,12 +96,14 @@ func (a *App) loadAppConfigFile() {
 		panic(fmt.Sprintf("Can't load config file [%s]: %s", configFname, err.Error()))
 	}
 
-	// Try again in cwd
-	configFname = a.getConfigFilename(true)
-	err = source.loadFromIniFile(configFname)
 	if err != nil {
-		// Can't log, it's all too early. This is fatal, tho
-		panic(fmt.Sprintf("Can't load config file [%s] after fallback to cwd: %s", configFname, err.Error()))
+		// Try again in cwd
+		configFname = a.getConfigFilename(true)
+		err = source.loadFromIniFile(configFname)
+		if err != nil {
+			// Can't log, it's all too early. This is fatal, tho
+			panic(fmt.Sprintf("Can't load config file [%s] after fallback to cwd: %s", configFname, err.Error()))
+		}
 	}
 
 	persistentOverrides := make(ConfigMap)
