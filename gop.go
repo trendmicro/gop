@@ -64,8 +64,46 @@ type Req struct {
 	writer       *responseWriter
 }
 
+// Return one of these from a handler to control the error response
+// Returning nil if you have sent your own response (as is typical on success)
+type HTTPError struct {
+	Code int
+	Body string
+}
+// To satisfy the interface only
+func (h HTTPError) Error() string {
+	return fmt.Sprintf("HTTP Error [%d] - %s", h.Code, h.Body)
+}
+func (h HTTPError) Write(w *responseWriter) {
+	w.WriteHeader(h.Code)
+	w.Write([]byte(h.Body))
+	w.Write([]byte("\r\n"))
+}
+
+// Simple helpers for common HTTP error cases
+var ErrNotFound HTTPError = HTTPError{Code: http.StatusNotFound}
+var ErrBadRequest HTTPError = HTTPError{Code: http.StatusBadRequest}
+var ErrServerError HTTPError = HTTPError{Code: http.StatusInternalServerError}
+
+func NotFound(body string) error {
+	err := ErrNotFound
+	err.Body = body
+	return error(err)
+}
+func BadRequest(body string) error {
+	err := ErrBadRequest
+	err.Body = body
+	return error(err)
+}
+
+func ServerError(body string) error {
+	err := ErrServerError
+	err.Body = body
+	return error(err)
+}
+
 // The function signature your http handlers need.
-type HandlerFunc func(g *Req, w http.ResponseWriter, r *http.Request)
+type HandlerFunc func(g *Req, w http.ResponseWriter, r *http.Request) error
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
@@ -255,32 +293,32 @@ func (g *Req) finished() {
 
 // Send sends the given []byte with the specified MIME type to the
 // specified ResponseWriter. []byte must be in UTF-8 encoding.
-func (g *Req) Send(w http.ResponseWriter, mimetype string, v []byte) {
+func (g *Req) Send(w http.ResponseWriter, mimetype string, v []byte) error {
 	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
 	w.Write(v)
+	return nil
 }
 
 // SendText sends the given []byte with the mimetype "text/plain"
-func (g *Req) SendText(w http.ResponseWriter, v []byte) {
-	g.Send(w, "text/plain", v)
+func (g *Req) SendText(w http.ResponseWriter, v []byte) error {
+	return g.Send(w, "text/plain", v)
 }
 
 // SendHtml sends the given []byte with the mimetype "text/html"
-func (g *Req) SendHtml(w http.ResponseWriter, v []byte) {
-	g.Send(w, "text/html", v)
+func (g *Req) SendHtml(w http.ResponseWriter, v []byte) error {
+	return g.Send(w, "text/html", v)
 }
 
 // SendJson marshals the given v into JSON and sends it with the
 // mimetype "application/json". what is a human-readable name for the
 // thing being marshalled.
-func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) {
+func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
 		g.Error("Failed to encode %s as json: %s", what, err.Error())
-		http.Error(w, "Failed to encode json: "+err.Error(), http.StatusInternalServerError)
-		return
+		return ServerError("Failed to encode json: "+err.Error())
 	}
-	g.Send(w, "application/json", append(json, '\n'))
+	return g.Send(w, "application/json", append(json, '\n'))
 }
 
 func (a *App) watchdog() {
@@ -366,6 +404,10 @@ func (w *responseWriter) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+func (w *responseWriter) HasWritten() bool {
+	return w.size > 0
+}
+
 func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 	// Wrap the handler, so we can do before/after logic
 	f := func(w http.ResponseWriter, r *http.Request) {
@@ -384,7 +426,20 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 		}
 
 		// Pass in the gop, for logging, cfg etc
-		h(gopRequest, &gopWriter, r)
+		err = h(gopRequest, &gopWriter, r)
+		if err != nil {
+			httpErr, ok := err.(HTTPError)
+			if !ok {
+				httpErr = HTTPError{Code: http.StatusInternalServerError, Body: "Internal error: " + err.Error()}
+			}
+			if gopWriter.HasWritten() {
+				// Ah. We have an error we'd like to send. But it's too late.
+				// Bad handler, no biscuit.
+				a.Error("Handler returned http error after writing data [%s] - discarding error", httpErr)
+			} else {
+				httpErr.Write(&gopWriter)
+			}
+		}
 	}
 
 	return http.HandlerFunc(f)
