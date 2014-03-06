@@ -415,24 +415,39 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 		return
 	}
 
+	// Build an error to write
+	httpErr := HTTPError{
+		Code: http.StatusInternalServerError,
+	}
+	sawHTTPErrorPanic := false
+
 	// If we can get a string out of the recovered data, do so
 	var recoveredMessage string
 	switch r := r.(type) {
+	case HTTPError:
+		httpErr = r
+		sawHTTPErrorPanic = true
 	case error:
 		recoveredMessage = r.Error()
 	case fmt.Stringer:
 		recoveredMessage = r.String()
+	case string:
+		recoveredMessage = r
 	default:
 		recoveredMessage = fmt.Sprintf("Unrecognised error: %v", r)
 	}
 
-	// Use custom panic message if we have one
-	body := panicMessage
-	if body == "" {
-		body = "PANIC: " + recoveredMessage
+	// Use custom panic message if we have one (and no panic'd HTTPError)
+	if !sawHTTPErrorPanic {
+		httpErr.Body = panicMessage
+		if httpErr.Body == "" {
+			httpErr.Body = "PANIC: " + recoveredMessage
+		}
 	}
 
-	if showBacktrace {
+	if sawHTTPErrorPanic {
+		g.Error("PANIC - sending panic'd error to client")
+	} else if showBacktrace {
 		g.Error("PANIC - sending backtrace to client")
 		bufSize := 4096
 		buf := make([]byte, bufSize)
@@ -443,19 +458,14 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 			}
 			bufSize *= 2
 		}
-		body += "\n\n" + string(buf)
+		httpErr.Body += "\n\n" + string(buf)
 	} else {
 		g.Error("PANIC - sending info to client")
 	}
 
 	if g.W.HasWritten() {
-		g.Error("PANIC after handler had written data: %s", body)
+		g.Error("PANIC after handler had written data: %s", httpErr.Body)
 	} else {
-		// Build an error to write
-		httpErr := HTTPError{
-			Code: http.StatusInternalServerError,
-			Body: body,
-		}
 		httpErr.Write(g.W)
 	}
 }

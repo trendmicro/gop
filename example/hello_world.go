@@ -39,10 +39,15 @@ func main() {
 		panic("I have a bad feeling about this")
 	})
 
-	// And deepseated personal issues
+	// You shouldn't panic after writing output...
 	app.HandleFunc("/porkins", func(req *gop.Req) error {
 		req.SendText([]byte("Writing away"))
 		panic("You can't panic now!?")
+	})
+
+	// And don't do this...it's exception handling, and therefore bad
+	app.HandleFunc("/obiwan", func(req *gop.Req) error {
+		panic(gop.NotFound("These aren't the droids you're looking for"))
 	})
 
 	app.Run()
