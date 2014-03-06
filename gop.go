@@ -305,22 +305,24 @@ func (g *Req) finished() {
 	}
 }
 
-// Send sends the given []byte with the specified MIME type to the
-// specified ResponseWriter. []byte must be in UTF-8 encoding.
-func (g *Req) Send(mimetype string, v []byte) error {
-	g.W.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
+// send is the internal sends the given []byte with the specified MIME
+// type to the specified ResponseWriter.
+func (g *Req) send(mimetype string, v []byte) error {
+	g.W.Header().Set("Content-Type", mimetype)
 	g.W.Write(v)
 	return nil
 }
 
-// SendText sends the given []byte with the mimetype "text/plain"
+// SendText sends the given []byte with the mimetype "text/plain". The
+// []byte must be in UTF-8 encoding.
 func (g *Req) SendText(v []byte) error {
-	return g.Send("text/plain", v)
+	return g.send("text/plain; charset=utf-8", v)
 }
 
-// SendHtml sends the given []byte with the mimetype "text/html"
+// SendHtml sends the given []byte with the mimetype "text/html". The
+// []byte must be in UTF-8 encoding.
 func (g *Req) SendHtml(v []byte) error {
-	return g.Send("text/html", v)
+	return g.send("text/html; charset=utf-8", v)
 }
 
 // SendJson marshals the given v into JSON and sends it with the
@@ -332,7 +334,7 @@ func (g *Req) SendJson(what string, v interface{}) error {
 		g.Error("Failed to encode %s as json: %s", what, err.Error())
 		return ServerError("Failed to encode json: " + err.Error())
 	}
-	return g.Send("application/json", append(json, '\n'))
+	return g.send("application/json", append(json, '\n'))
 }
 
 func (a *App) watchdog() {
