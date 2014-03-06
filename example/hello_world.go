@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/trendmicro/gop"
 	"fmt"
+	"github.com/trendmicro/gop"
 	"os"
 )
 
@@ -13,9 +13,9 @@ type MyApp struct {
 func main() {
 	// Get logging and config going
 	app := gop.Init("hello", "world")
-	
+
 	// Construct our global context. Make this readonly or be prepared to
-	// syncronise 
+	// syncronise
 	myApp := MyApp{name: "Greeter"}
 
 	// Register our handler, closing over the global context

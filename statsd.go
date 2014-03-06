@@ -2,8 +2,8 @@ package gop
 
 import (
 	"github.com/cactus/go-statsd-client/statsd"
-	"strings"
 	"os"
+	"strings"
 )
 
 type StatsdClient struct {

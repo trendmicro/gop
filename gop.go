@@ -70,6 +70,7 @@ type HTTPError struct {
 	Code int
 	Body string
 }
+
 // To satisfy the interface only
 func (h HTTPError) Error() string {
 	return fmt.Sprintf("HTTP Error [%d] - %s", h.Code, h.Body)
@@ -316,7 +317,7 @@ func (g *Req) SendJson(what string, v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
 		g.Error("Failed to encode %s as json: %s", what, err.Error())
-		return ServerError("Failed to encode json: "+err.Error())
+		return ServerError("Failed to encode json: " + err.Error())
 	}
 	return g.Send("application/json", append(json, '\n'))
 }
