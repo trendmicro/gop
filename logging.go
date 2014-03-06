@@ -125,12 +125,12 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 		return string(strconv.AppendQuote([]byte{}, s))
 	}
 
-	reqFirstLine := fmt.Sprintf("%s %s %s", req.r.Method, req.r.RequestURI, req.r.Proto)
-	referrerLine := req.r.Referer()
+	reqFirstLine := fmt.Sprintf("%s %s %s", req.R.Method, req.R.RequestURI, req.R.Proto)
+	referrerLine := req.R.Referer()
 	if referrerLine == "" {
 		referrerLine = "-"
 	}
-	uaLine := req.r.Header.Get("User-Agent")
+	uaLine := req.R.Header.Get("User-Agent")
 	if uaLine == "" {
 		uaLine = "-"
 	}
@@ -144,8 +144,8 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 		//		req.startTime.Format("[02/Jan/2006:15:04:05 -0700]"),
 		req.startTime.Format("["+time.RFC3339+"]"),
 		quote(reqFirstLine),
-		req.writer.code,
-		req.writer.size,
+		req.W.code,
+		req.W.size,
 		quote(referrerLine),
 		quote(uaLine))
 	_, err := req.app.accessLog.WriteString(logLine)

@@ -58,10 +58,10 @@ type Req struct {
 	id           int
 	startTime    time.Time
 	app          *App
-	r            *http.Request
+	R            *http.Request
 	RealRemoteIP string
 	IsHTTPS      bool
-	writer       *responseWriter
+	W            *responseWriter
 }
 
 // Return one of these from a handler to control the error response
@@ -103,7 +103,7 @@ func ServerError(body string) error {
 }
 
 // The function signature your http handlers need.
-type HandlerFunc func(g *Req, w http.ResponseWriter, r *http.Request) error
+type HandlerFunc func(g *Req) error
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
@@ -216,7 +216,7 @@ func (a *App) requestMaker() {
 					id:           nextReqId,
 					app:          a,
 					startTime:    time.Now(),
-					r:            wantReq.r,
+					R:            wantReq.r,
 					RealRemoteIP: realRemoteIP,
 					IsHTTPS:      isHTTPS,
 				}
@@ -261,18 +261,18 @@ func (a *App) getReq(r *http.Request) *Req {
 }
 
 func (g *Req) finished() {
-	context.Clear(g.r) // Cleanup  gorilla stash
+	context.Clear(g.R) // Cleanup  gorilla stash
 
 	reqDuration := time.Since(g.startTime)
 
 	g.app.WriteAccessLog(g, reqDuration)
 
-	codeStatsKey := fmt.Sprintf("http_status.%d", g.writer.code)
+	codeStatsKey := fmt.Sprintf("http_status.%d", g.W.code)
 	g.app.Stats.Inc(codeStatsKey, 1)
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
 	if reqDuration.Seconds() > float64(slowReqSecs) {
-		g.Error("Slow request [%s] took %s", g.r.URL, reqDuration)
+		g.Error("Slow request [%s] took %s", g.R.URL, reqDuration)
 	} else {
 		g.Debug("Request took %s", reqDuration)
 	}
@@ -293,32 +293,32 @@ func (g *Req) finished() {
 
 // Send sends the given []byte with the specified MIME type to the
 // specified ResponseWriter. []byte must be in UTF-8 encoding.
-func (g *Req) Send(w http.ResponseWriter, mimetype string, v []byte) error {
-	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
-	w.Write(v)
+func (g *Req) Send(mimetype string, v []byte) error {
+	g.W.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
+	g.W.Write(v)
 	return nil
 }
 
 // SendText sends the given []byte with the mimetype "text/plain"
-func (g *Req) SendText(w http.ResponseWriter, v []byte) error {
-	return g.Send(w, "text/plain", v)
+func (g *Req) SendText(v []byte) error {
+	return g.Send("text/plain", v)
 }
 
 // SendHtml sends the given []byte with the mimetype "text/html"
-func (g *Req) SendHtml(w http.ResponseWriter, v []byte) error {
-	return g.Send(w, "text/html", v)
+func (g *Req) SendHtml(v []byte) error {
+	return g.Send("text/html", v)
 }
 
 // SendJson marshals the given v into JSON and sends it with the
 // mimetype "application/json". what is a human-readable name for the
 // thing being marshalled.
-func (g *Req) SendJson(w http.ResponseWriter, what string, v interface{}) error {
+func (g *Req) SendJson(what string, v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
 		g.Error("Failed to encode %s as json: %s", what, err.Error())
 		return ServerError("Failed to encode json: "+err.Error())
 	}
-	return g.Send(w, "application/json", append(json, '\n'))
+	return g.Send("application/json", append(json, '\n'))
 }
 
 func (a *App) watchdog() {
@@ -416,7 +416,7 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 			a.doneReq <- gopRequest
 		}()
 		gopWriter := responseWriter{code: 200, ResponseWriter: w}
-		gopRequest.writer = &gopWriter
+		gopRequest.W = &gopWriter
 
 		err := r.ParseForm()
 		if err != nil {
@@ -426,7 +426,7 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 		}
 
 		// Pass in the gop, for logging, cfg etc
-		err = h(gopRequest, &gopWriter, r)
+		err = h(gopRequest)
 		if err != nil {
 			httpErr, ok := err.(HTTPError)
 			if !ok {

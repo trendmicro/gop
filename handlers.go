@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -15,32 +13,32 @@ import (
 
 var decoder = schema.NewDecoder() // Single-instance so struct info cached
 
-func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) error {
+func gopHandler(g *Req) error {
 	enabled, _ := g.Cfg.GetBool("gop", "enable_gop_urls", false)
 	if !enabled {
 		return NotFound("Not enabled")
 	}
-	vars := mux.Vars(r)
+	vars := mux.Vars(g.R)
 	switch vars["action"] {
 	case "status":
 		{
-			return handleStatus(g, w, r)
+			return handleStatus(g)
 		}
 	case "stack":
 		{
-			return handleStack(g, w, r)
+			return handleStack(g)
 		}
 	case "mem":
 		{
-			return handleMem(g, w, r)
+			return handleMem(g)
 		}
 	case "test":
 		{
-			return handleTest(g, w, r)
+			return handleTest(g)
 		}
 	case "config":
 		{
-			return handleConfig(g, w, r)
+			return handleConfig(g)
 		}
 	default:
 		{
@@ -49,19 +47,19 @@ func gopHandler(g *Req, w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
-func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) error {
+func handleConfig(g *Req) error {
 	// We can be called with and without section+key
-	vars := mux.Vars(r)
+	vars := mux.Vars(g.R)
 	section := vars["section"]
 	key := vars["key"]
-	if r.Method == "PUT" {
+	if g.R.Method == "PUT" {
 		if section == "" {
 			return BadRequest("No section in url")
 		}
 		if key == "" {
 			return BadRequest("No key in url")
 		}
-		value, err := ioutil.ReadAll(r.Body)
+		value, err := ioutil.ReadAll(g.R.Body)
 		if err != nil {
 			return ServerError("Failed to read value: "+err.Error())
 		}
@@ -72,7 +70,7 @@ func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) error {
 		if key != "" {
 			strVal, found := g.Cfg.Get(section, key, "")
 			if found {
-				return g.SendJson(w, "config", strVal)
+				return g.SendJson("config", strVal)
 			} else {
 				return NotFound("No such key in section")
 			}
@@ -83,23 +81,23 @@ func handleConfig(g *Req, w http.ResponseWriter, r *http.Request) error {
 				strVal, _ := g.Cfg.Get(section, key, "")
 				sectionMap[key] = strVal
 			}
-			return g.SendJson(w, "config", sectionMap)
+			return g.SendJson("config", sectionMap)
 		}
 	} else {
 		configMap := g.Cfg.AsMap()
-		return g.SendJson(w, "config", configMap)
+		return g.SendJson("config", configMap)
 	}
 	return nil
 }
 
-func handleMem(g *Req, w http.ResponseWriter, r *http.Request) error {
-	if r.Method == "POST" {
+func handleMem(g *Req) error {
+	if g.R.Method == "POST" {
 		type memParams struct {
 			GCNow     int `schema:"gc_now"`
 			GCPercent int `schema:"gc_percent"`
 		}
 		params := memParams{}
-		err := g.Decoder.Decode(&params, r.Form)
+		err := g.Decoder.Decode(&params, g.R.Form)
 		if err != nil {
 			g.Error("Failed to decode params: "+err.Error())
 			return ServerError("Failed to decode params: "+err.Error())
@@ -118,15 +116,15 @@ func handleMem(g *Req, w http.ResponseWriter, r *http.Request) error {
 			g.Info(info)
 			msg += info + "\n"
 		}
-		io.WriteString(w, msg)
+		return g.SendText([]byte(msg))
 		return nil
 	}
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	return g.SendJson(w, "memstats", memStats)
+	return g.SendJson("memstats", memStats)
 }
 
-func handleStack(g *Req, w http.ResponseWriter, r *http.Request) error {
+func handleStack(g *Req) error {
 	buf := make([]byte, 1024)
 	for {
 		traceLen := runtime.Stack(buf, true)
@@ -136,11 +134,11 @@ func handleStack(g *Req, w http.ResponseWriter, r *http.Request) error {
 		// Try a bigger buf
 		buf = make([]byte, 2*len(buf))
 	}
-	w.Write(buf)
+	g.W.Write(buf)
 	return nil
 }
 
-func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) error {
+func handleStatus(g *Req) error {
 	type requestInfo struct {
 		Id       int
 		Method   string
@@ -173,15 +171,15 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) error {
 		reqDuration := time.Since(req.startTime)
 		info := requestInfo{
 			Id:       req.id,
-			Method:   req.r.Method,
-			Url:      req.r.URL.String(),
+			Method:   req.R.Method,
+			Url:      req.R.URL.String(),
 			Duration: reqDuration.Seconds(),
 			RemoteIP: req.RealRemoteIP,
 			IsHTTPS:  req.IsHTTPS,
 		}
 		status.RequestInfo = append(status.RequestInfo, info)
 	}
-	return g.SendJson(w, "status", status)
+	return g.SendJson("status", status)
 	/*
 	   fmt.Fprintf(w, "%s - %s PID %d up for %.3fs (%s)\n\n", g.app.ProjectName, g.app.AppName, os.Getpid(), appDuration, g.app.startTime)
 	   for req := range reqChan {
@@ -191,13 +189,13 @@ func handleStatus(g *Req, w http.ResponseWriter, r *http.Request) error {
 	*/
 }
 
-func handleTest(g *Req, w http.ResponseWriter, r *http.Request) error {
+func handleTest(g *Req) error {
 	type details struct {
 		Kbytes int `schema:"kbytes"`
 		Secs   int `schema:"secs"`
 	}
 	args := details{}
-	err := g.Decoder.Decode(&args, r.Form)
+	err := g.Decoder.Decode(&args, g.R.Form)
 	if err != nil {
 		return ServerError("Failed to decode params: "+err.Error())
 	}
@@ -208,7 +206,7 @@ func handleTest(g *Req, w http.ResponseWriter, r *http.Request) error {
 		buf[i] = 1
 	}
 	time.Sleep(time.Second * time.Duration(args.Secs))
-	fmt.Fprintf(w, "Slow request took additional %d secs and allocated additional %d KB\n", args.Secs, args.Kbytes)
+	g.SendText([]byte(fmt.Sprintf("Slow request took additional %d secs and allocated additional %d KB\n", args.Secs, args.Kbytes)))
 	return nil
 }
 

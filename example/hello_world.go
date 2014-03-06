@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/trendmicro/gop"
-	"net/http"
 	"fmt"
 )
 
@@ -19,12 +18,12 @@ func main() {
 	myApp := MyApp{name: "Greeter"}
 
 	// Register our handler, closing over the global context
-	app.HandleFunc("/", func(req *gop.Req, w http.ResponseWriter, r *http.Request) error {
-		return req.SendText(w, []byte("Hello from " + myApp.name))
+	app.HandleFunc("/", func(req *gop.Req) error {
+		return req.SendText([]byte("Hello from " + myApp.name))
 	})
 
 	// Errors can be handled..
-	app.HandleFunc("/notthere", func(req *gop.Req, w http.ResponseWriter, r *http.Request) error {
+	app.HandleFunc("/notthere", func(req *gop.Req) error {
 		return gop.NotFound(fmt.Sprintf("%s says there's nobody home", myApp.name))
 	})
 
