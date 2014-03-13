@@ -337,6 +337,19 @@ func (g *Req) SendJson(what string, v interface{}) error {
 	return g.send("application/json", append(json, '\n'))
 }
 
+func (g *Req) Params() map[string]string {
+	err := g.R.ParseForm()
+	if err != nil {
+		g.Error("Failed to parse form: " + err.Error() + " (continuing)")
+	}
+	simpleParams := make(map[string]string)
+	for k, _ := range g.R.Form {
+		// Just pluck out the first
+		simpleParams[k] = g.R.Form[k][0]
+	}
+	return simpleParams
+}
+
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
 	ticker := time.Tick(time.Second * time.Duration(repeat))
@@ -500,6 +513,8 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 		gopWriter := responseWriter{code: 200, ResponseWriter: w}
 		gopRequest.W = &gopWriter
 
+		// TODO: remove this. We call in Params() on demand. Need to move current code
+		// over .Params() before we can remove this though.
 		err := r.ParseForm()
 		if err != nil {
 			a.Error("Failed to parse form: " + err.Error() + " (continuing)")

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/trendmicro/gop"
+	"io"
 	"os"
 )
 
@@ -19,35 +20,45 @@ func main() {
 	myApp := MyApp{name: "Greeter"}
 
 	// Register our handler, closing over the global context
-	app.HandleFunc("/", func(req *gop.Req) error {
-		return req.SendText([]byte("Hello from " + myApp.name))
+	app.HandleFunc("/", func(g *gop.Req) error {
+		return g.SendText([]byte("Hello from " + myApp.name))
 	})
 
 	// HTTP Errors can be handled..
-	app.HandleFunc("/notthere", func(req *gop.Req) error {
+	app.HandleFunc("/notthere", func(g *gop.Req) error {
 		return gop.NotFound(fmt.Sprintf("%s says there's nobody home", myApp.name))
 	})
 
 	// As can 'internal' errors
-	app.HandleFunc("/deeperproblem", func(req *gop.Req) error {
+	app.HandleFunc("/deeperproblem", func(g *gop.Req) error {
 		_, err := os.Stat("/tmp/mustnotexist")
 		return err
 	})
 
 	// And deepseated personal issues
-	app.HandleFunc("/nerfherder", func(req *gop.Req) error {
+	app.HandleFunc("/nerfherder", func(g *gop.Req) error {
 		panic("I have a bad feeling about this")
 	})
 
 	// You shouldn't panic after writing output...
-	app.HandleFunc("/porkins", func(req *gop.Req) error {
-		req.SendText([]byte("Writing away"))
+	app.HandleFunc("/porkins", func(g *gop.Req) error {
+		g.SendText([]byte("Writing away"))
 		panic("You can't panic now!?")
 	})
 
 	// And don't do this...it's exception handling, and therefore bad
-	app.HandleFunc("/obiwan", func(req *gop.Req) error {
+	app.HandleFunc("/obiwan", func(g *gop.Req) error {
 		panic(gop.NotFound("These aren't the droids you're looking for"))
+	})
+
+	// And don't do this...it's exception handling, and therefore bad
+	app.HandleFunc("/showparams", func(g *gop.Req) error {
+		io.WriteString(g.W, "Params are: <ul>\n")
+		for k, v := range g.Params() {
+			io.WriteString(g.W, fmt.Sprintf("<li>%s = %s</li>\n", k, v))
+		}
+		io.WriteString(g.W, "</ul>\n")
+		return nil
 	})
 
 	app.Run()
