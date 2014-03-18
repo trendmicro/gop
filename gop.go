@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -349,6 +350,30 @@ func (g *Req) Params() map[string]string {
 	}
 	return simpleParams
 }
+
+func (g *Req) Param(key string) (string, error) {
+	s, ok := g.Params()[key]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return s, nil
+}
+func (g *Req) ParamInt(key string) (int, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(s)
+}
+func (g *Req) ParamDuration(key string) (time.Duration, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return 0, err
+	}
+	return time.ParseDuration(s)
+}
+
+
 
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
