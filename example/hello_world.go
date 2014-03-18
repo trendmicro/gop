@@ -5,6 +5,7 @@ import (
 	"github.com/trendmicro/gop"
 	"io"
 	"os"
+	"time"
 )
 
 type MyApp struct {
@@ -59,6 +60,23 @@ func main() {
 		}
 		io.WriteString(g.W, "</ul>\n")
 		return nil
+	})
+
+	// And don't do this...it's exception handling, and therefore bad
+	app.HandleFunc("/sleeper", func(g *gop.Req) error {
+		sleepDuration, err := g.ParamDuration("secs")
+		if err != nil {
+			return gop.BadRequest("Need to supply a duration as 'secs'")
+		}
+		cn := g.W.CloseNotify()
+		g.Error("About to sleep")
+		select {
+			case <- cn:
+				g.Error("Caller closed connection")
+			case <- time.After(sleepDuration):
+				g.Error("Received timeout")
+		}
+		return g.SendText([]byte(fmt.Sprintf("Slept for %s\n", sleepDuration)))
 	})
 
 	app.Run()
