@@ -32,6 +32,7 @@ import (
 // Stuff we include in both App and Req, for convenience
 type common struct {
 	Logger
+	loggerIndex int
 	Cfg     Config
 	Stats   StatsdClient
 	Decoder *schema.Decoder
@@ -54,6 +55,7 @@ type App struct {
 	doingGraceful            bool
 	accessLog                *os.File
 	suppressedAccessLogLines int
+	logDir			 string
 }
 
 // The function signature your http handlers need.

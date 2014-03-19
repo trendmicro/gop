@@ -12,8 +12,7 @@ import (
 
 type Logger timber.Logger
 
-func (a *App) initLogging() {
-
+func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 	defaultLogPattern := "[%D %T] [%L] %M"
 	filenamesByDefault, _ := a.Cfg.GetBool("gop", "log_filename", false)
 	if filenamesByDefault {
@@ -31,16 +30,17 @@ func (a *App) initLogging() {
 
 	defaultLogDir, _ := a.Cfg.Get("gop", "log_dir", "/var/log")
 	fellbackToCWD := false
-	logDir := defaultLogDir + "/" + a.ProjectName
+	a.logDir = defaultLogDir + "/" + a.ProjectName
 	if !forceStdout {
-		defaultLogFname := logDir + "/" + a.AppName + ".log"
+		defaultLogFname := a.logDir + "/" + a.AppName + ".log"
 		logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
 
 		newWriter, err := timber.NewFileWriter(logFname)
-		_, dirExistsErr := os.Stat(logDir)
+		_, dirExistsErr := os.Stat(a.logDir)
 		if dirExistsErr != nil && os.IsNotExist(dirExistsErr) {
 			// Carry on with stdout logging, but remember to mention it
 			fellbackToCWD = true
+			a.logDir = "."
 		} else {
 			if err != nil {
 				panic(fmt.Sprintf("Can't open log file: %s", err))
@@ -58,11 +58,19 @@ func (a *App) initLogging() {
 		}
 	}
 
+	return configLogger, fellbackToCWD
+}
+
+func (a *App) initLogging() {
+
+	configLogger, fellbackToCWD := a.makeConfigLogger()
+
 	// *Don't* create a NewTImber here. Logs are only flushed on Close() and if we
 	// have more than one timber, it's easy to only Close() one of them...
 	l := timber.Global
-	l.AddLogger(configLogger)
+
 	a.Logger = l
+	a.loggerIndex = l.AddLogger(configLogger)
 
 	// Set up the default go logger to go here too, so 3rd party
 	// module logging plays nicely
@@ -71,7 +79,7 @@ func (a *App) initLogging() {
 
 	doAccessLog, _ := a.Cfg.GetBool("gop", "access_log_enable", false)
 	if doAccessLog {
-		defaultAccessLogFname := defaultLogDir + "/" + a.ProjectName + "/" + a.AppName + "-access.log"
+		defaultAccessLogFname := a.logDir + "/" + a.AppName + "-access.log"
 		accessLogFilename, _ := a.Cfg.Get("gop", "access_log_filename", defaultAccessLogFname)
 		// Don't use .Create since it truncates
 		var err error
@@ -82,8 +90,15 @@ func (a *App) initLogging() {
 	}
 
 	if fellbackToCWD {
-		l.Error("Logging directory [%s] does not exist - logging to stdout", logDir)
+		l.Error("Logging directory does not exist - logging to stdout")
 	}
+	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.resetLogging() })
+}
+
+func (a *App) resetLogging() {
+	configLogger, _ := a.makeConfigLogger()
+	l := timber.Global
+	l.SetLogger(a.loggerIndex, configLogger)
 }
 
 func (a *App) closeLogging() {
