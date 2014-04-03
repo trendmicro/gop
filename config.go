@@ -14,10 +14,10 @@ import (
 )
 
 type ConfigSource interface {
-	Get(sName, k string, def string) (string, bool)
-	Add(sName, k, v string)
+	Get(sectionName, optionName string, defaultValue string) (string, bool)
+	Add(sectionName, optionName, optionValue string)
 	Sections() []string
-	SectionKeys(sName string) []string
+	SectionKeys(sectionName string) []string
 }
 
 type Config struct {
@@ -128,26 +128,32 @@ func (a *App) loadAppConfigFile() {
 	}
 }
 
-func (cfgMap *ConfigMap) Get(sName, k string, def string) (string, bool) {
-	s, ok := map[string]map[string]string(*cfgMap)[sName]
+// Get an option value for the given sectionName.
+// Will return defaultValue if the section or the option does not exist.
+// The second return value is True if the requested option value was returned and False if the default value was returned.
+func (cfgMap *ConfigMap) Get(sectionName, optionName string, defaultValue string) (string, bool) {
+	s, ok := map[string]map[string]string(*cfgMap)[sectionName]
 	if !ok {
-		return def, false
+		return defaultValue, false
 	}
-	v, ok := map[string]string(s)[k]
+	v, ok := map[string]string(s)[optionName]
 	if !ok {
-		return def, false
+		return defaultValue, false
 	}
 	return v, true
 }
 
-func (cfgMap *ConfigMap) Add(sName, k, v string) {
-	_, ok := (*cfgMap)[sName]
+// Set the given option to the specified value for the named section.
+// Create the section if it does not exist.
+func (cfgMap *ConfigMap) Add(sectionName, optionName, optionValue string) {
+	_, ok := (*cfgMap)[sectionName]
 	if !ok {
-		(*cfgMap)[sName] = make(map[string]string)
+		(*cfgMap)[sectionName] = make(map[string]string)
 	}
-	(*cfgMap)[sName][k] = v
+	(*cfgMap)[sectionName][optionName] = optionValue
 }
 
+// Get a list of the names of the avaliable sections.
 func (cfgMap *ConfigMap) Sections() []string {
 	sections := make([]string, 0)
 	for k, _ := range *cfgMap {
@@ -156,9 +162,11 @@ func (cfgMap *ConfigMap) Sections() []string {
 	return sections
 }
 
-func (cfgMap *ConfigMap) SectionKeys(sName string) []string {
+// Get a list of options for the named section.
+// Will return an empty list if the section does not exist.
+func (cfgMap *ConfigMap) SectionKeys(sectionName string) []string {
 	keys := make([]string, 0)
-	section, ok := (*cfgMap)[sName]
+	section, ok := (*cfgMap)[sectionName]
 	if !ok {
 		return keys
 	}
@@ -183,6 +191,7 @@ func (cfg *Config) savePersistentOverrides() error {
 	return cfg.persistentOverrides.saveToJsonFile(cfg.overrideFname)
 }
 
+// Get a list of the names of the available sections, including those specified in the override file.
 func (cfg *Config) Sections() []string {
 	sectionMap := make(map[string]bool)
 
@@ -204,22 +213,23 @@ func (cfg *Config) Sections() []string {
 	return sections
 }
 
-func (cfg *Config) SectionKeys(sName string) []string {
+// Get a list of options for the named section, including those specified in the override file.
+func (cfg *Config) SectionKeys(sectionName string) []string {
 	keyMap := make(map[string]bool)
 
-	sourceKeys := cfg.source.SectionKeys(sName)
+	sourceKeys := cfg.source.SectionKeys(sectionName)
 	for _, key := range sourceKeys {
 		keyMap[key] = true
 	}
 
-	overrideSection, ok := cfg.persistentOverrides[sName]
+	overrideSection, ok := cfg.persistentOverrides[sectionName]
 	if ok {
 		for key := range overrideSection {
 			keyMap[key] = true
 		}
 	}
 
-	overrideSection, ok = cfg.transientOverrides[sName]
+	overrideSection, ok = cfg.transientOverrides[sectionName]
 	if ok {
 		for key := range overrideSection {
 			keyMap[key] = true
@@ -233,6 +243,7 @@ func (cfg *Config) SectionKeys(sName string) []string {
 	return keys
 }
 
+// Get a copy of the config as a map that maps each section to a map that maps the options to the values.
 func (cfg *Config) AsMap() map[string]map[string]string {
 	configMap := make(map[string]map[string]string)
 	sections := cfg.Sections()
@@ -246,13 +257,13 @@ func (cfg *Config) AsMap() map[string]map[string]string {
 	return configMap
 }
 
-func (cfg *Config) PersistentOverride(sectionName, key, val string) {
+func (cfg *Config) PersistentOverride(sectionName, optionName, optionValue string) {
 	section, ok := cfg.persistentOverrides[sectionName]
 	if !ok {
 		cfg.persistentOverrides[sectionName] = make(map[string]string)
 		section = cfg.persistentOverrides[sectionName]
 	}
-	section[key] = val
+	section[optionName] = optionValue
 	err := cfg.savePersistentOverrides()
 	if err != nil {
 		log.Printf("Failed to save to override file [%s]: %s\n", cfg.overrideFname, err.Error())
@@ -261,79 +272,92 @@ func (cfg *Config) PersistentOverride(sectionName, key, val string) {
 	return
 }
 
-func (cfg *Config) TransientOverride(sectionName, key, val string) {
+func (cfg *Config) TransientOverride(sectionName, optionName, optionValue string) {
 	section, ok := cfg.transientOverrides[sectionName]
 	if !ok {
 		cfg.transientOverrides[sectionName] = make(map[string]string)
 		section = cfg.transientOverrides[sectionName]
 	}
-	section[key] = val
+	section[optionName] = optionValue
 	cfg.notifyChange()
 	return
 }
 
-func (cfg *Config) Get(sectionName, key string, def string) (string, bool) {
-	str, found := cfg.transientOverrides.Get(sectionName, key, def)
+func (cfg *Config) Get(sectionName, optionName string, defaultValue string) (string, bool) {
+	str, found := cfg.transientOverrides.Get(sectionName, optionName, defaultValue)
 	if found {
 		return str, true
 	}
-	str, found = cfg.persistentOverrides.Get(sectionName, key, def)
+	str, found = cfg.persistentOverrides.Get(sectionName, optionName, defaultValue)
 	if found {
 		return str, true
 	}
 
 	// Not found, just punt it to the base
-	return cfg.source.Get(sectionName, key, def)
+	return cfg.source.Get(sectionName, optionName, defaultValue)
 }
 
-func (cfg *Config) GetInt(sName, k string, def int) (int, bool) {
-	v, found := cfg.Get(sName, k, "")
+// Same as Config.Get, but returns the value as int.
+func (cfg *Config) GetInt(sectionName, optionName string, defaultValue int) (int, bool) {
+	v, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	r, err := strconv.Atoi(v)
 	if err == nil {
 		return r, true
 	}
-	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
+	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", optionName, v, err))
 }
-func (cfg *Config) GetInt64(sName, k string, def int64) (int64, bool) {
-	v, found := cfg.Get(sName, k, "")
+
+// Same as Config.Get, but returns the value as int64.
+// The integer has to be written in the config in decimal format. This means that for the value written in
+// the config as "08" this method will return 8 instead of 10. And "0x8" will generate an error.
+func (cfg *Config) GetInt64(sectionName, optionName string, defaultValue int64) (int64, bool) {
+	v, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	r, err := strconv.ParseInt(v, 10, 64)
 	if err == nil {
 		return r, true
 	}
-	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", k, v, err))
+	panic(fmt.Sprintf("Non-numeric config key %s: %s [%s]", optionName, v, err))
 }
-func (cfg *Config) GetBool(sName, k string, def bool) (bool, bool) {
-	v, found := cfg.Get(sName, k, "")
+
+// Same as Config.Get, but returns the value as boolean.
+// The option value should be one that strconv.ParseBool understands.
+func (cfg *Config) GetBool(sectionName, optionName string, defaultValue bool) (bool, bool) {
+	v, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	r, err := strconv.ParseBool(v)
 	if err == nil {
 		return r, true
 	}
-	panic(fmt.Sprintf("Bad boolean config key %s: %s", k, v))
+	panic(fmt.Sprintf("Bad boolean config key %s: %s", optionName, v))
 }
-func (cfg *Config) GetFloat32(sName, k string, def float32) (float32, bool) {
-	v, found := cfg.Get(sName, k, "")
+
+// Same as Config.Get, but returns the value as float32.
+func (cfg *Config) GetFloat32(sectionName, optionName string, defaultValue float32) (float32, bool) {
+	v, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	r, err := strconv.ParseFloat(v, 32)
 	if err == nil {
 		return float32(r), true
 	}
-	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", k, v, err))
+	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", optionName, v, err))
 }
-func (cfg *Config) GetList(sName, k string, def []string) ([]string, bool) {
-	vStr, found := cfg.Get(sName, k, "")
+
+// Return a list of strings for a config value that is written as a comma-separated list.
+// Each value will be stripped out of leading and trailing white spaces as defined by Unicode.
+func (cfg *Config) GetList(sectionName, optionName string, defaultValue []string) ([]string, bool) {
+	vStr, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	v := strings.Split(vStr, ",")
 	for i := 0; i < len(v); i++ {
@@ -341,29 +365,33 @@ func (cfg *Config) GetList(sName, k string, def []string) ([]string, bool) {
 	}
 	return v, true
 }
-func (cfg *Config) GetDuration(sName, k string, def time.Duration) (time.Duration, bool) {
-	vStr, found := cfg.Get(sName, k, "")
+
+// Same as Config.Get but returns the value as time.Duration.
+// The value in the config file should be in the format that time.ParseDuration() understands.
+func (cfg *Config) GetDuration(sectionName, optionName string, defaultValue time.Duration) (time.Duration, bool) {
+	vStr, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return def, false
+		return defaultValue, false
 	}
 	v, err := time.ParseDuration(vStr)
 	if err != nil {
-		return def, false
+		return defaultValue, false
 	}
 	return v, true
 }
-func (cfg *Config) GetMap(sName, kPrefix string, def map[string]string) (map[string]string, bool) {
-	keys := cfg.SectionKeys(sName)
-	v := make(map[string]string)
-	for _, k := range keys {
-		if strings.HasPrefix(k, kPrefix) {
-			kTrimmed := strings.TrimPrefix(k, kPrefix)
-			v[kTrimmed], _ = cfg.Get(sName, k, "")
-		}
-	}
-	found := len(v) > 0
-	if !found {
-		return def, false
-	}
-	return v, true
+
+func (cfg *Config) GetMap(sectionName, kPrefix string, defaultValue map[string]string) (map[string]string, bool) {
+      keys := cfg.SectionKeys(sectionName)
+      v := make(map[string]string)
+      for _, k := range keys {
+              if strings.HasPrefix(k, kPrefix) {
+                      kTrimmed := strings.TrimPrefix(k, kPrefix)
+                      v[kTrimmed], _ = cfg.Get(sectionName, k, "")
+              }
+      }
+      found := len(v) > 0
+      if !found {
+              return defaultValue, false
+      }
+      return v, true
 }
