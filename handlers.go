@@ -61,7 +61,7 @@ func handleConfig(g *Req) error {
 		}
 		value, err := ioutil.ReadAll(g.R.Body)
 		if err != nil {
-			return ServerError("Failed to read value: "+err.Error())
+			return ServerError("Failed to read value: " + err.Error())
 		}
 		g.Cfg.PersistentOverride(section, key, string(value))
 	}
@@ -99,8 +99,8 @@ func handleMem(g *Req) error {
 		params := memParams{}
 		err := g.Decoder.Decode(&params, g.R.Form)
 		if err != nil {
-			g.Error("Failed to decode params: "+err.Error())
-			return ServerError("Failed to decode params: "+err.Error())
+			g.Error("Failed to decode params: " + err.Error())
+			return ServerError("Failed to decode params: " + err.Error())
 		}
 		msg := "Adjusting mem system\n"
 		if params.GCNow > 0 {
@@ -197,7 +197,7 @@ func handleTest(g *Req) error {
 	args := details{}
 	err := g.Decoder.Decode(&args, g.R.Form)
 	if err != nil {
-		return ServerError("Failed to decode params: "+err.Error())
+		return ServerError("Failed to decode params: " + err.Error())
 	}
 	g.Debug("Test req - taking %d secs, %d KB", args.Secs, args.Kbytes)
 	buf := make([]byte, args.Kbytes*1024)

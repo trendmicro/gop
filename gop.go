@@ -1,3 +1,15 @@
+/*
+	GOP "Go in Production" is an attempt to provide a useful set of services for running
+	(primarily http) applications in production service.
+
+	This includes:
+		- configuration
+		- logging
+		- statsd integration
+		- signal handling
+		- resource management
+		- basic web framework
+*/
 package gop
 
 import (
@@ -11,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -19,13 +32,13 @@ import (
 // Stuff we include in both App and Req, for convenience
 type common struct {
 	Logger
+	loggerIndex int
 	Cfg     Config
 	Stats   StatsdClient
 	Decoder *schema.Decoder
 }
 
-// Represents a managed gop app. Returned by init.
-// Embeds logging, provides .Cfg for configuration access.
+// Represents a gop application. Create with gop.Init(projectName, applicationName)
 type App struct {
 	common
 
@@ -42,13 +55,11 @@ type App struct {
 	doingGraceful            bool
 	accessLog                *os.File
 	suppressedAccessLogLines int
+	logDir			 string
 }
 
-// Used for RPC to get a new request
-type wantReq struct {
-	r     *http.Request
-	reply chan *Req
-}
+// The function signature your http handlers need.
+type HandlerFunc func(g *Req) error
 
 // Per request struct. has convenience references to functionality
 // in the app singleton. Passed into the request handler.
@@ -70,6 +81,7 @@ type HTTPError struct {
 	Code int
 	Body string
 }
+
 // To satisfy the interface only
 func (h HTTPError) Error() string {
 	return fmt.Sprintf("HTTP Error [%d] - %s", h.Code, h.Body)
@@ -85,25 +97,30 @@ var ErrNotFound HTTPError = HTTPError{Code: http.StatusNotFound}
 var ErrBadRequest HTTPError = HTTPError{Code: http.StatusBadRequest}
 var ErrServerError HTTPError = HTTPError{Code: http.StatusInternalServerError}
 
+// Helper to generate a NotFound HTTPError
 func NotFound(body string) error {
 	err := ErrNotFound
 	err.Body = body
 	return error(err)
 }
+// Helper to generate a BadRequest HTTPError
 func BadRequest(body string) error {
 	err := ErrBadRequest
 	err.Body = body
 	return error(err)
 }
-
+// Helper to generate an InternalServerError HTTPError
 func ServerError(body string) error {
 	err := ErrServerError
 	err.Body = body
 	return error(err)
 }
 
-// The function signature your http handlers need.
-type HandlerFunc func(g *Req) error
+// Used for RPC to get a new request
+type wantReq struct {
+	r     *http.Request
+	reply chan *Req
+}
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
@@ -139,7 +156,7 @@ func Init(projectName, appName string) *App {
 	return app
 }
 
-// Clean shutdown
+// Shut down the app cleanly. (Needed to flush logs)
 func (a *App) Finish() {
 	// Start a log flush
 	a.closeLogging()
@@ -291,22 +308,24 @@ func (g *Req) finished() {
 	}
 }
 
-// Send sends the given []byte with the specified MIME type to the
-// specified ResponseWriter. []byte must be in UTF-8 encoding.
-func (g *Req) Send(mimetype string, v []byte) error {
-	g.W.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimetype))
+// send is the internal sends the given []byte with the specified MIME
+// type to the specified ResponseWriter.
+func (g *Req) send(mimetype string, v []byte) error {
+	g.W.Header().Set("Content-Type", mimetype)
 	g.W.Write(v)
 	return nil
 }
 
-// SendText sends the given []byte with the mimetype "text/plain"
+// SendText sends the given []byte with the mimetype "text/plain". The
+// []byte must be in UTF-8 encoding.
 func (g *Req) SendText(v []byte) error {
-	return g.Send("text/plain", v)
+	return g.send("text/plain; charset=utf-8", v)
 }
 
-// SendHtml sends the given []byte with the mimetype "text/html"
+// SendHtml sends the given []byte with the mimetype "text/html". The
+// []byte must be in UTF-8 encoding.
 func (g *Req) SendHtml(v []byte) error {
-	return g.Send("text/html", v)
+	return g.send("text/html; charset=utf-8", v)
 }
 
 // SendJson marshals the given v into JSON and sends it with the
@@ -316,10 +335,47 @@ func (g *Req) SendJson(what string, v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
 		g.Error("Failed to encode %s as json: %s", what, err.Error())
-		return ServerError("Failed to encode json: "+err.Error())
+		return ServerError("Failed to encode json: " + err.Error())
 	}
-	return g.Send("application/json", append(json, '\n'))
+	return g.send("application/json", append(json, '\n'))
 }
+
+func (g *Req) Params() map[string]string {
+	err := g.R.ParseForm()
+	if err != nil {
+		g.Error("Failed to parse form: " + err.Error() + " (continuing)")
+	}
+	simpleParams := make(map[string]string)
+	for k, _ := range g.R.Form {
+		// Just pluck out the first
+		simpleParams[k] = g.R.Form[k][0]
+	}
+	return simpleParams
+}
+
+func (g *Req) Param(key string) (string, error) {
+	s, ok := g.Params()[key]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return s, nil
+}
+func (g *Req) ParamInt(key string) (int, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(s)
+}
+func (g *Req) ParamDuration(key string) (time.Duration, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return 0, err
+	}
+	return time.ParseDuration(s)
+}
+
+
 
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
@@ -484,6 +540,8 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 		gopWriter := responseWriter{code: 200, ResponseWriter: w}
 		gopRequest.W = &gopWriter
 
+		// TODO: remove this. We call in Params() on demand. Need to move current code
+		// over .Params() before we can remove this though.
 		err := r.ParseForm()
 		if err != nil {
 			a.Error("Failed to parse form: " + err.Error() + " (continuing)")

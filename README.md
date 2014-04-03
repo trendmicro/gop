@@ -44,12 +44,11 @@ package main
 
 import (
 	"github.com/trendmicro/gop"
-	"net/http"
 )
 
 // hello is a basic HTTP handler
-func hello(g *gop.Req, w http.ResponseWriter, r *http.Request) {
-	g.SendText(w, []byte("Hello, world!\n"))
+func hello(g *gop.Req) error {
+	return g.SendText(w, []byte("Hello, world!\n"))
 }
 
 // main initializes the gop app
