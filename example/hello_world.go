@@ -52,7 +52,6 @@ func main() {
 		panic(gop.NotFound("These aren't the droids you're looking for"))
 	})
 
-	// And don't do this...it's exception handling, and therefore bad
 	app.HandleFunc("/showparams", func(g *gop.Req) error {
 		io.WriteString(g.W, "Params are: <ul>\n")
 		for k, v := range g.Params() {
@@ -62,7 +61,6 @@ func main() {
 		return nil
 	})
 
-	// And don't do this...it's exception handling, and therefore bad
 	app.HandleFunc("/sleeper", func(g *gop.Req) error {
 		sleepDuration, err := g.ParamDuration("secs")
 		if err != nil {
@@ -78,6 +76,16 @@ func main() {
 		}
 		return g.SendText([]byte(fmt.Sprintf("Slept for %s\n", sleepDuration)))
 	})
+
+	app.HandleFunc("/reqparam", func(g *gop.Req) error {
+		io.WriteString(g.W, "Params are: <ul>\n")
+		for k, v := range g.Params() {
+			io.WriteString(g.W, fmt.Sprintf("<li>%s = %s</li>\n", k, v))
+		}
+		io.WriteString(g.W, "</ul>\n")
+		return nil
+	}, "needed")
+
 
 	app.Run()
 }

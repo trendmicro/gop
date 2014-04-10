@@ -526,7 +526,7 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 	}
 }
 
-func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
+func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerFunc {
 	panicMessage, _ := a.Cfg.Get("gop", "panic_message", "")
 	showBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace", false)
 	showAllInBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace_all_goros", true)
@@ -551,8 +551,14 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 
 		// Panic handler
 		defer dealWithPanic(gopRequest, showBacktrace, showAllInBacktrace, panicMessage)
-		// Pass in the gop, for logging, cfg etc
-		err = h(gopRequest)
+
+		err = gopRequest.checkRequiredParams(requiredParams)
+		// Only run handler if required args ok
+		if err == nil {
+			// Pass in the gop, for logging, cfg etc
+			err = h(gopRequest)
+		}
+
 		if err != nil {
 			httpErr, ok := err.(HTTPError)
 			if !ok {
@@ -574,10 +580,27 @@ func (a *App) WrapHandler(h HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(f)
 }
 
+func (g *Req) checkRequiredParams(requiredParams []string) error {
+	if len(requiredParams) == 0 {
+		return nil
+	}
+	params := g.Params()
+	for _, requiredParam := range requiredParams {
+		_, ok := params[requiredParam]
+		if !ok {
+			return HTTPError {
+				Code: http.StatusBadRequest,
+				Body: "Missing required parameter: " + requiredParam,
+			}
+		}
+	}
+	return nil
+}
+
 // Register an http handler managed by gop.
 // We use Gorilla muxxer, since it is back-compatible and nice to use :-)
-func (a *App) HandleFunc(u string, h HandlerFunc) {
-	gopHandler := a.WrapHandler(h)
+func (a *App) HandleFunc(u string, h HandlerFunc, requiredParams ...string) {
+	gopHandler := a.WrapHandler(h, requiredParams...)
 
 	a.GorillaRouter.HandleFunc(u, gopHandler)
 }
