@@ -464,7 +464,7 @@ func (w *responseWriter) HasWritten() bool {
 	return w.size > 0
 }
 
-func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage string) {
+func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, panicHTTPMessage string) {
 	r := recover()
 	if r == nil {
 		// We're only here to handle a panic
@@ -495,7 +495,7 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 
 	// Use custom panic message if we have one (and no panic'd HTTPError)
 	if !sawHTTPErrorPanic {
-		httpErr.Body = panicMessage
+		httpErr.Body = panicHTTPMessage
 		if httpErr.Body == "" {
 			httpErr.Body = "PANIC: " + recoveredMessage
 		}
@@ -503,20 +503,15 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 
 	if sawHTTPErrorPanic {
 		g.Error("PANIC - sending panic'd error to client")
-	} else if showBacktrace {
+	} else if showInResponse {
 		g.Error("PANIC - sending backtrace to client")
-		bufSize := 4096
-		buf := make([]byte, bufSize)
-		for {
-			numWritten := runtime.Stack(buf, showAllInBacktrace)
-			if numWritten < bufSize {
-				break
-			}
-			bufSize *= 2
-		}
-		httpErr.Body += "\n\n" + string(buf)
+		httpErr.Body += "\n\n" + string(getBackTrace(showAllInBacktrace))
 	} else {
 		g.Error("PANIC - sending info to client")
+	}
+
+	if showInLog {
+		g.Error("PANIC: " + string(getBackTrace(showAllInBacktrace)))
 	}
 
 	if g.W.HasWritten() {
@@ -526,9 +521,23 @@ func dealWithPanic(g *Req, showBacktrace, showAllInBacktrace bool, panicMessage 
 	}
 }
 
+func getBackTrace(showAllGoros bool) []byte {
+	bufSize := 4096
+	buf := make([]byte, bufSize)
+	for {
+		numWritten := runtime.Stack(buf, showAllGoros)
+		if numWritten < bufSize {
+			break
+		}
+		bufSize *= 2
+	}
+	return buf
+}
+
 func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerFunc {
-	panicMessage, _ := a.Cfg.Get("gop", "panic_message", "")
-	showBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace", false)
+	panicHTTPMessage, _ := a.Cfg.Get("gop", "panic_http_message", "")
+	showInLog, _ := a.Cfg.GetBool("gop", "panic_backtrace_to_log", false)
+	showInResponse, _ := a.Cfg.GetBool("gop", "panic_backtrace_in_response", false)
 	showAllInBacktrace, _ := a.Cfg.GetBool("gop", "panic_backtrace_all_goros", true)
 
 	// Wrap the handler, so we can do before/after logic
@@ -550,7 +559,7 @@ func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerF
 		}
 
 		// Panic handler
-		defer dealWithPanic(gopRequest, showBacktrace, showAllInBacktrace, panicMessage)
+		defer dealWithPanic(gopRequest, showInResponse, showInLog, showAllInBacktrace, panicHTTPMessage)
 
 		err = gopRequest.checkRequiredParams(requiredParams)
 		// Only run handler if required args ok
