@@ -153,6 +153,9 @@ func Init(projectName, appName string) *App {
 
 	app.initStatsd()
 
+	// Exit cleanly
+	defer app.Finish()
+
 	return app
 }
 
