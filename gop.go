@@ -599,10 +599,10 @@ func (g *Req) checkRequiredParams(requiredParams []string) error {
 
 // Register an http handler managed by gop.
 // We use Gorilla muxxer, since it is back-compatible and nice to use :-)
-func (a *App) HandleFunc(u string, h HandlerFunc, requiredParams ...string) {
+func (a *App) HandleFunc(u string, h HandlerFunc, requiredParams ...string) *mux.Route {
 	gopHandler := a.WrapHandler(h, requiredParams...)
 
-	a.GorillaRouter.HandleFunc(u, gopHandler)
+	return a.GorillaRouter.HandleFunc(u, gopHandler)
 }
 
 func (a *App) Run() {
