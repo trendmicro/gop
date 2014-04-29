@@ -48,7 +48,7 @@ import (
 
 // hello is a basic HTTP handler
 func hello(g *gop.Req) error {
-	return g.SendText(w, []byte("Hello, world!\n"))
+	return g.SendText([]byte("Hello, world!\n"))
 }
 
 // main initializes the gop app
