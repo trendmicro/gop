@@ -374,6 +374,13 @@ func (g *Req) ParamDuration(key string) (time.Duration, error) {
 	}
 	return time.ParseDuration(s)
 }
+func (g *Req) ParamTime(key string) (time.Time, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Parse(time.RFC3339Nano, s)
+}
 
 
 
