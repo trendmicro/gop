@@ -680,3 +680,22 @@ func getMemInfo() (int64, int64) {
 	// There's lots of stuff in here.
 	return int64(memStats.Sys), int64(memStats.Alloc)
 }
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func (a *App) HandleWebSocketFunc(u string, h HandlerFunc, requiredParams ...string) *mux.Route {
+	gopHandler := a.WrapWebSocketHandler(h, requiredParams...)
+
+	return a.GorillaRouter.HandleFunc(u, gopHandler)
+}
+
+func (a *App) WrapWebSocketHandler(h HandlerFunc, requiredParams ...string) http.HandlerFunc {
+	return a.wrapHandlerInternal(h, true, requiredParams...)
+}
+
+func (g *Req) WebSocketWrite(buf []byte) error {
+	return g.WS.WriteMessage(websocket.TextMessage, buf)
+}
