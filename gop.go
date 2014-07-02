@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	"github.com/gorilla/websocket"
 	"os"
 
 	"fmt"
@@ -33,9 +34,9 @@ import (
 type common struct {
 	Logger
 	loggerIndex int
-	Cfg     Config
-	Stats   StatsdClient
-	Decoder *schema.Decoder
+	Cfg         Config
+	Stats       StatsdClient
+	Decoder     *schema.Decoder
 }
 
 // Represents a gop application. Create with gop.Init(projectName, applicationName)
@@ -51,11 +52,12 @@ type App struct {
 	getReqs                  chan chan *Req
 	startTime                time.Time
 	currentReqs              int
+	currentWSReqs            int
 	totalReqs                int
 	doingGraceful            bool
 	accessLog                *os.File
 	suppressedAccessLogLines int
-	logDir			 string
+	logDir                   string
 }
 
 // The function signature your http handlers need.
@@ -72,7 +74,9 @@ type Req struct {
 	R            *http.Request
 	RealRemoteIP string
 	IsHTTPS      bool
-	W            *responseWriter
+	// Only one of these is valid to use...
+	W  *responseWriter
+	WS *websocket.Conn
 }
 
 // Return one of these from a handler to control the error response
@@ -103,12 +107,14 @@ func NotFound(body string) error {
 	err.Body = body
 	return error(err)
 }
+
 // Helper to generate a BadRequest HTTPError
 func BadRequest(body string) error {
 	err := ErrBadRequest
 	err.Body = body
 	return error(err)
 }
+
 // Helper to generate an InternalServerError HTTPError
 func ServerError(body string) error {
 	err := ErrServerError
@@ -118,8 +124,9 @@ func ServerError(body string) error {
 
 // Used for RPC to get a new request
 type wantReq struct {
-	r     *http.Request
-	reply chan *Req
+	r         *http.Request
+	reply     chan *Req
+	websocket bool
 }
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
@@ -241,8 +248,12 @@ func (a *App) requestMaker() {
 				nextReqId++
 				a.totalReqs++
 				a.currentReqs++
+				if wantReq.websocket {
+					a.currentWSReqs++
+				}
 				a.Stats.Gauge("http_reqs", int64(a.totalReqs))
 				a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
+				a.Stats.Gauge("current_ws_reqs", int64(a.currentWSReqs))
 				wantReq.reply <- &req
 			}
 		case doneReq := <-a.doneReq:
@@ -254,6 +265,10 @@ func (a *App) requestMaker() {
 					doneReq.finished()
 					a.currentReqs--
 					a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
+					if doneReq.WS != nil {
+						a.currentWSReqs--
+						a.Stats.Gauge("current_ws_reqs", int64(a.currentWSReqs))
+					}
 					delete(openReqs, doneReq.id)
 				}
 			}
@@ -271,9 +286,9 @@ func (a *App) requestMaker() {
 }
 
 // Ask requestMaker for a request
-func (a *App) getReq(r *http.Request) *Req {
+func (a *App) getReq(r *http.Request, websocket bool) *Req {
 	reply := make(chan *Req)
-	a.wantReq <- &wantReq{r: r, reply: reply}
+	a.wantReq <- &wantReq{r: r, websocket: websocket, reply: reply}
 	return <-reply
 }
 
@@ -381,8 +396,6 @@ func (g *Req) ParamTime(key string) (time.Time, error) {
 	}
 	return time.Parse(time.RFC3339Nano, s)
 }
-
-
 
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
@@ -542,6 +555,15 @@ func getBackTrace(showAllGoros bool) []byte {
 }
 
 func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerFunc {
+	return a.wrapHandlerInternal(h, false, requiredParams...)
+}
+
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams ...string) http.HandlerFunc {
 	panicHTTPMessage, _ := a.Cfg.Get("gop", "panic_http_message", "")
 	showInLog, _ := a.Cfg.GetBool("gop", "panic_backtrace_to_log", false)
 	showInResponse, _ := a.Cfg.GetBool("gop", "panic_backtrace_in_response", false)
@@ -549,12 +571,23 @@ func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerF
 
 	// Wrap the handler, so we can do before/after logic
 	f := func(w http.ResponseWriter, r *http.Request) {
-		gopRequest := a.getReq(r)
+		gopRequest := a.getReq(r, websocket)
 		defer func() {
 			a.doneReq <- gopRequest
 		}()
-		gopWriter := responseWriter{code: 200, ResponseWriter: w}
-		gopRequest.W = &gopWriter
+		if websocket {
+			ws, err := wsUpgrader.Upgrade(w, r, nil)
+			gopRequest.WS = ws
+			if err != nil {
+				errStr := "Failed to upgrade websocket " + err.Error()
+				a.Error(errStr)
+				http.Error(w, errStr, http.StatusInternalServerError)
+				return
+			}
+		} else {
+			gopWriter := responseWriter{code: 200, ResponseWriter: w}
+			gopRequest.W = &gopWriter
+		}
 
 		// TODO: remove this. We call in Params() on demand. Need to move current code
 		// over .Params() before we can remove this though.
@@ -583,12 +616,12 @@ func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerF
 					Body: "Internal error: " + err.Error(),
 				}
 			}
-			if gopWriter.HasWritten() {
+			if gopRequest.W.HasWritten() {
 				// Ah. We have an error we'd like to send. But it's too late.
 				// Bad handler, no biscuit.
 				a.Error("Handler returned http error after writing data [%s] - discarding error", httpErr)
 			} else {
-				httpErr.Write(&gopWriter)
+				httpErr.Write(gopRequest.W)
 			}
 		}
 	}
@@ -604,7 +637,7 @@ func (g *Req) checkRequiredParams(requiredParams []string) error {
 	for _, requiredParam := range requiredParams {
 		_, ok := params[requiredParam]
 		if !ok {
-			return HTTPError {
+			return HTTPError{
 				Code: http.StatusBadRequest,
 				Body: "Missing required parameter: " + requiredParam,
 			}

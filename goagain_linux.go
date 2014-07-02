@@ -82,8 +82,8 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 			}
 		case <-tickChan:
 			{
-				if a.currentReqs == 0 {
-					a.Error("Graceful restart - no pending requests - time to die")
+				if a.currentReqs-a.currentWSReqs >= 0 {
+					a.Error("Graceful restart - no pending non-ws requests - time to die")
 					waiting = false
 				} else {
 					a.Info("Graceful restart - tick still have %d pending reqs", a.currentReqs)
