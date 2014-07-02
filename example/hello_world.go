@@ -69,10 +69,10 @@ func main() {
 		cn := g.W.CloseNotify()
 		g.Error("About to sleep")
 		select {
-			case <- cn:
-				g.Error("Caller closed connection")
-			case <- time.After(sleepDuration):
-				g.Error("Received timeout")
+		case <-cn:
+			g.Error("Caller closed connection")
+		case <-time.After(sleepDuration):
+			g.Error("Received timeout")
 		}
 		return g.SendText([]byte(fmt.Sprintf("Slept for %s\n", sleepDuration)))
 	})
@@ -85,7 +85,6 @@ func main() {
 		io.WriteString(g.W, "</ul>\n")
 		return nil
 	}, "needed")
-
 
 	app.Run()
 }

@@ -19,7 +19,7 @@ Here is how GOP determines the location of the configuration file:
 
  * If you did not set any of these environment variables, GOP will look for a file named
    $APP.conf in /etc/$PROJECT
-   
+
 It should be emphasized that GOP will check only one location. It means that if you specified
 $PROJECT_$APP_CFG_FILE and the file does not exist, GOP will raise an error.
 
@@ -78,7 +78,7 @@ in the [gop] section of the configuration file (values shown below are default):
                                                           #   This option may not work with custom log pattern (include %S to avoid it).
 
   log_dir             = /var/log                          # Directory where GOP will look for the project's log directory
-  log_file            = $log_dir/$project_name/$app.log   # Full path to the log file 
+  log_file            = $log_dir/$project_name/$app.log   # Full path to the log file
   log_level           = INFO                              # Case-insensitive log level accepted by Timber: Finest, Fine, Debug, Trace, Info, Warn, Error, Critical
   stdout_only_logging = false                             # Output log to STDOUT instead of the log file
 

@@ -381,17 +381,17 @@ func (cfg *Config) GetDuration(sectionName, optionName string, defaultValue time
 }
 
 func (cfg *Config) GetMap(sectionName, kPrefix string, defaultValue map[string]string) (map[string]string, bool) {
-      keys := cfg.SectionKeys(sectionName)
-      v := make(map[string]string)
-      for _, k := range keys {
-              if strings.HasPrefix(k, kPrefix) {
-                      kTrimmed := strings.TrimPrefix(k, kPrefix)
-                      v[kTrimmed], _ = cfg.Get(sectionName, k, "")
-              }
-      }
-      found := len(v) > 0
-      if !found {
-              return defaultValue, false
-      }
-      return v, true
+	keys := cfg.SectionKeys(sectionName)
+	v := make(map[string]string)
+	for _, k := range keys {
+		if strings.HasPrefix(k, kPrefix) {
+			kTrimmed := strings.TrimPrefix(k, kPrefix)
+			v[kTrimmed], _ = cfg.Get(sectionName, k, "")
+		}
+	}
+	found := len(v) > 0
+	if !found {
+		return defaultValue, false
+	}
+	return v, true
 }
