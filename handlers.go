@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"io/ioutil"
+	"net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -214,4 +215,25 @@ func (a *App) registerGopHandlers() {
 	a.HandleFunc("/gop/{action}", gopHandler)
 	a.HandleFunc("/gop/config/{section}", handleConfig)
 	a.HandleFunc("/gop/config/{section}/{key}", handleConfig)
+
+	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.maybeRegisterPProfHandlers() })
+}
+
+func (a *App) maybeRegisterPProfHandlers() {
+	if enableProfiling, _ := a.Cfg.GetBool("gop", "enable_profiling_urls", false); enableProfiling {
+		a.HandleFunc("/pprof/cmdline", func(g *Req) error {
+			pprof.Cmdline(g.W, g.R)
+			return nil
+		})
+
+		a.HandleFunc("/pprof/symbol", func(g *Req) error {
+			pprof.Symbol(g.W, g.R)
+			return nil
+		})
+
+		a.HandleFunc("/pprof/profile", func(g *Req) error {
+			pprof.Profile(g.W, g.R)
+			return nil
+		})
+	}
 }
