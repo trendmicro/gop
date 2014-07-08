@@ -629,6 +629,14 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 	return http.HandlerFunc(f)
 }
 
+func (a *App) HTTPHandler(u string, h http.Handler) {
+	f := func(g *Req) error {
+		h.ServeHTTP(g.W, g.R)
+		return nil
+	}
+	a.HandleFunc(u, f)
+}
+
 func (g *Req) checkRequiredParams(requiredParams []string) error {
 	if len(requiredParams) == 0 {
 		return nil
