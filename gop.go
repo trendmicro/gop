@@ -704,6 +704,10 @@ func (a *App) WrapWebSocketHandler(h HandlerFunc, requiredParams ...string) http
 	return a.wrapHandlerInternal(h, true, requiredParams...)
 }
 
-func (g *Req) WebSocketWrite(buf []byte) error {
+func (g *Req) WebSocketWriteText(buf []byte) error {
 	return g.WS.WriteMessage(websocket.TextMessage, buf)
+}
+
+func (g *Req) WebSocketWriteBinary(buf []byte) error {
+	return g.WS.WriteMessage(websocket.BinaryMessage, buf)
 }
