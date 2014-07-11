@@ -5,7 +5,7 @@ import (
 )
 
 func (g *Req) Render(templateData interface{}, templates ...string) error {
-	templateDir, _ := g.Cfg.Get("gop", "template_dir", "./templates")
+	templateDir, _ := g.Cfg.GetPath("gop", "template_dir", "./templates")
 
 	templateFilenames := make([]string, len(templates))
 	for i := range templates {

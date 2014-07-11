@@ -380,6 +380,26 @@ func (cfg *Config) GetDuration(sectionName, optionName string, defaultValue time
 	return v, true
 }
 
+func expandTildeToHome(fname string) string {
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fname
+	}
+	return strings.Replace(fname, "~", homeDir, -1)
+}
+
+// Same as Config.Get but consider the string as a filename path and
+// expands ~ characters to the homedir of the current uid
+func (cfg *Config) GetPath(sectionName, optionName string, defaultValue string) (string, bool) {
+
+	vStr, found := cfg.Get(sectionName, optionName, "")
+	if !found {
+		return defaultValue, false
+	}
+	v := expandTildeToHome(vStr)
+	return v, true
+}
+
 func (cfg *Config) GetMap(sectionName, kPrefix string, defaultValue map[string]string) (map[string]string, bool) {
 	keys := cfg.SectionKeys(sectionName)
 	v := make(map[string]string)
