@@ -216,6 +216,7 @@ func (a *App) registerGopHandlers() {
 	a.HandleFunc("/gop/config/{section}", handleConfig)
 	a.HandleFunc("/gop/config/{section}/{key}", handleConfig)
 
+	a.maybeRegisterPProfHandlers()
 	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.maybeRegisterPProfHandlers() })
 }
 
