@@ -236,5 +236,12 @@ func (a *App) maybeRegisterPProfHandlers() {
 			pprof.Profile(g.W, g.R)
 			return nil
 		})
+
+		a.HandleFunc("/pprof/{profile_name}", func(g *Req) error {
+			vars := mux.Vars(g.R)
+			h := pprof.Handler(vars["profile_name"])
+			h.ServeHTTP(g.W, g.R)
+			return nil
+		})
 	}
 }
