@@ -396,6 +396,14 @@ func (g *Req) ParamTime(key string) (time.Time, error) {
 	}
 	return time.Parse(time.RFC3339Nano, s)
 }
+func (g *Req) ParamBool(key string) (bool, error) {
+	s, err := g.Param(key)
+	if err != nil {
+		return false, err
+	}
+	s = strings.ToLower(s)
+	return (s == "1" || s == "true" || s == "yes"), nil
+}
 
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
