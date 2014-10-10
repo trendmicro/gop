@@ -77,6 +77,7 @@ type Req struct {
 	// Only one of these is valid to use...
 	W  *responseWriter
 	WS *websocket.Conn
+	CanBeSlow    bool //set this to true to suppress the "Slow Request" warning
 }
 
 // Return one of these from a handler to control the error response
@@ -303,7 +304,7 @@ func (g *Req) finished() {
 	g.app.Stats.Inc(codeStatsKey, 1)
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
-	if reqDuration.Seconds() > float64(slowReqSecs) {
+	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow{
 		g.Error("Slow request [%s] took %s", g.R.URL, reqDuration)
 	} else {
 		g.Debug("Request took %s", reqDuration)

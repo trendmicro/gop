@@ -15,10 +15,11 @@ import (
 // Embed so we can define our own methods here
 type nelly struct {
 	*gop.App
-	ownThePidFile bool
-	exeName       string
-	pgid          int
-	sigChan       chan os.Signal
+	ownThePidFile   bool
+	exeName         string
+	pgid            int
+	sigChan         chan os.Signal
+	startGracePings int
 }
 
 func main() {
@@ -50,35 +51,75 @@ func main() {
 	// Number of times we'll allow the child to miss a ping at startup,
 	// which seems to be necessary since 1s isn't long enough for midserver
 	// to get as far as setpgrp on smoke, apparently
-	startGracePings, _ := n.Cfg.GetInt("gop", "nelly_startup_grace_checks", 5)
+	n.startGracePings, _ = n.Cfg.GetInt("gop", "nelly_startup_grace_checks", 5)
 
 LOOP:
 	for {
 		select {
 		case <-ticker:
 			{
-				if n.processGroupIsEmpty() {
-					startGracePings--
-					n.Error("Process group [%d] empty - grace pings left [%d]", n.pgid, startGracePings)
-					if startGracePings <= 0 {
-						n.Error("We appear to have no child - time to die and hope init sorts it all out")
-						break LOOP
-					}
-				} else {
-					// We've had a good ping, no more Mr Nice Guy
-					startGracePings = 0
+				if n.checkForDeath() {
+					break LOOP
 				}
 			}
 		case sig := <-n.sigChan:
 			{
-				n.Error("Caught signal: %s - killing process group", sig)
-				syscall.Kill(-n.pgid, syscall.SIGTERM)
-				n.Error("Exiting on SIGTERM")
-				os.Exit(0)
+				if sig == syscall.SIGCHLD {
+					// SIGCHLD is a signal from a child that it has
+					// died - let's handle that immediately (if we
+					// miss it we'll get it on the next tick)
+					if n.checkForDeath() {
+						break LOOP
+					}
+				} else {
+					// Be hypersensitive and treat all other signals
+					// as an indication that we need to shut down (in
+					// the future we can tweak this list)
+
+					n.Error("Caught signal: %s - killing process group", sig)
+					syscall.Kill(-n.pgid, syscall.SIGTERM)
+					n.Error("Exiting on signal %s", sig)
+					os.Exit(0)
+				}
 			}
 		}
 	}
 	n.Error("Descendants are dead - exiting")
+}
+
+// checkForDeath tries to clean up zombies and then checks if the
+// process group is empty.
+//
+// It returns "true" if the answer is yes and there are no grace pings left
+//
+func (n *nelly) checkForDeath() bool {
+	
+	// Check if there are any zombies to eat. Process.Wait() doesn't
+	// support the POSIX WNOHANG for portability reasons, so let's use
+	// the syscall.Wait4() which is POSIX-only.
+	var w syscall.WaitStatus
+	rusage := syscall.Rusage{}
+	zpid, err := syscall.Wait4(-1, &w, syscall.WNOHANG, &rusage)
+	if err != nil {
+		n.Error("Error in Wait4: %s", err.Error())
+	}
+	if zpid > 0 {
+		n.Error("Ate a tasty zombie (pid was %d, status was %d)", zpid, w.ExitStatus())
+	}
+
+	if n.processGroupIsEmpty() {
+		n.startGracePings--
+		if n.startGracePings <= 0 {
+			n.Error("Process group [%d] empty - exiting and hoping init sorts it all out", n.pgid)
+			return true
+		} else {
+			n.Error("Process group [%d] empty - grace pings left [%d]", n.pgid, n.startGracePings)
+		}
+	} else {
+		// We've had a good ping, no more Mr Nice Guy
+		n.startGracePings = 0
+	}
+	return false
 }
 
 func (n *nelly) Finish() {
