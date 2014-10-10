@@ -15,7 +15,7 @@ type StatsdClient struct {
 func (a *App) initStatsd() {
 	statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
 	hostname, _ := os.Hostname()
-	statsdPrefix := strings.Join([]string{a.ProjectName, a.AppName, hostname}, ".")
+	statsdPrefix := strings.Join([]string{a.ProjectName, a.AppName, strings.Replace(hostname, ".", "_", 0)}, ".")
 	client, err := statsd.New(statsdHostport, statsdPrefix)
 	if err != nil {
 		// App will probably fall over due to nil client. That's OK.
