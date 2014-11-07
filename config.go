@@ -352,6 +352,19 @@ func (cfg *Config) GetFloat32(sectionName, optionName string, defaultValue float
 	panic(fmt.Sprintf("Non-numeric float32 config key %s: %s [%s]", optionName, v, err))
 }
 
+// Same as Config.Get, but returns the value as float64
+func (cfg *Config) GetFloat64(sectionName, optionName string, defaultValue float64) (float64, bool) {
+	v, found := cfg.Get(sectionName, optionName, "")
+	if !found {
+		return defaultValue, false
+	}
+	r, err := strconv.ParseFloat(v, 64)
+	if err == nil {
+		return float64(r), true
+	}
+	panic(fmt.Sprintf("Non-numeric float64 config key %s: %s [%s]", optionName, v, err))
+}
+
 // Return a list of strings for a config value that is written as a comma-separated list.
 // Each value will be stripped out of leading and trailing white spaces as defined by Unicode.
 func (cfg *Config) GetList(sectionName, optionName string, defaultValue []string) ([]string, bool) {
