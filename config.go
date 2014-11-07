@@ -156,7 +156,7 @@ func (cfgMap *ConfigMap) Add(sectionName, optionName, optionValue string) {
 // Get a list of the names of the avaliable sections.
 func (cfgMap *ConfigMap) Sections() []string {
 	sections := make([]string, 0)
-	for k, _ := range *cfgMap {
+	for k := range *cfgMap {
 		sections = append(sections, k)
 	}
 	return sections
@@ -170,7 +170,7 @@ func (cfgMap *ConfigMap) SectionKeys(sectionName string) []string {
 	if !ok {
 		return keys
 	}
-	for k, _ := range section {
+	for k := range section {
 		keys = append(keys, k)
 	}
 	return keys
@@ -207,7 +207,7 @@ func (cfg *Config) Sections() []string {
 	}
 
 	sections := make([]string, 0)
-	for k, _ := range sectionMap {
+	for k := range sectionMap {
 		sections = append(sections, k)
 	}
 	return sections
@@ -237,7 +237,7 @@ func (cfg *Config) SectionKeys(sectionName string) []string {
 	}
 
 	keys := make([]string, 0)
-	for k, _ := range keyMap {
+	for k := range keyMap {
 		keys = append(keys, k)
 	}
 	return keys

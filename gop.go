@@ -362,7 +362,7 @@ func (g *Req) Params() map[string]string {
 		g.Error("Failed to parse form: " + err.Error() + " (continuing)")
 	}
 	simpleParams := make(map[string]string)
-	for k, _ := range g.R.Form {
+	for k := range g.R.Form {
 		// Just pluck out the first
 		simpleParams[k] = g.R.Form[k][0]
 	}
