@@ -85,7 +85,7 @@ func (cm *ConfigMap) saveToJsonFile(fname string) error {
 	return ioutil.WriteFile(fname, jsonBytes, 0644)
 }
 
-func (a *App) loadAppConfigFile() {
+func (a *App) loadAppConfigFile(requireConfig bool) {
 	// We do not have logging set up yet. We just panic() on error.
 	source := make(ConfigMap)
 
@@ -101,6 +101,10 @@ func (a *App) loadAppConfigFile() {
 		configFname = a.getConfigFilename(true)
 		err = source.loadFromIniFile(configFname)
 		if err != nil {
+			if os.IsNotExist(err) && !requireConfig {
+				// OK - you're allowed to not fail in this case
+				return
+			}
 			// Can't log, it's all too early. This is fatal, tho
 			panic(fmt.Sprintf("Can't load config file [%s] after fallback to cwd: %s", configFname, err.Error()))
 		}

@@ -75,9 +75,9 @@ type Req struct {
 	RealRemoteIP string
 	IsHTTPS      bool
 	// Only one of these is valid to use...
-	W  *responseWriter
-	WS *websocket.Conn
-	CanBeSlow    bool //set this to true to suppress the "Slow Request" warning
+	W         *responseWriter
+	WS        *websocket.Conn
+	CanBeSlow bool //set this to true to suppress the "Slow Request" warning
 }
 
 // Return one of these from a handler to control the error response
@@ -132,6 +132,15 @@ type wantReq struct {
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
+	return doInit(projectName, appName, true)
+}
+
+// For test code and command line tools
+func InitCmd(projectName, appName string) *App {
+	return doInit(projectName, appName, false)
+}
+
+func doInit(projectName, appName string, requireConfig bool) *App {
 	app := &App{
 		common: common{
 			Decoder: schema.NewDecoder(),
@@ -145,7 +154,7 @@ func Init(projectName, appName string) *App {
 		startTime:     time.Now(),
 	}
 
-	app.loadAppConfigFile()
+	app.loadAppConfigFile(requireConfig)
 
 	// Linux setuid() doesn't work with threaded procs :-O
 	// and the go runtime threads before we can get going.
@@ -304,7 +313,7 @@ func (g *Req) finished() {
 	g.app.Stats.Inc(codeStatsKey, 1)
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
-	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow{
+	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow {
 		g.Error("Slow request [%s] took %s", g.R.URL, reqDuration)
 	} else {
 		g.Debug("Request took %s", reqDuration)
