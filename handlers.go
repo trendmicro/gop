@@ -63,6 +63,13 @@ func handleConfig(g *Req) error {
 		if err != nil {
 			return ServerError("Failed to read value: " + err.Error())
 		}
+		
+		if len(value)==0{
+			//Empty body is usually the result of a missing type header and evaluates to an empty string,
+			//which will prevent tellus from starting if the config setting is not string-valued
+			return BadRequest("Empty request body - I'm assuming you didn't mean to do that.")
+		}
+		
 		g.Cfg.PersistentOverride(section, key, string(value))
 	}
 
