@@ -185,8 +185,9 @@ func loadNelly() *nelly {
 
 func (n *nelly) startChild() *exec.Cmd {
 
-	// TODO:
-	// 1. Set process name (e.g. "[tellus]")
+	// Use exec.Command instead of os.StartProcess to get more
+	// high-level control of what the child process is doing (and
+	// because of convention)
 	cmd := exec.Command(n.exeName)
 	// Dup Nelly's stdout/stderr into the child.
 	cmd.Stdout = os.Stdout
