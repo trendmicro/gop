@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -31,12 +32,12 @@ func main() {
 		return
 	}
 
-	proc := n.startChild()
+	cmd := n.startChild()
 
 	// The child has to call setpgid() to install itself as a process group leader
 	// (i.e. it will have pgid == pid).
 	// We can then monitor whether the process group has become empty or not.
-	n.pgid = proc.Pid
+	n.pgid = cmd.Process.Pid
 
 	// We can send a signal to all members of a process group with kill() with a -ve pid
 	// We can send a 'do nothing' signal with a sig of 0
@@ -44,7 +45,7 @@ func main() {
 	// So we can send a sig of 0 to a process group and see if the process group is empty
 	// empty process group => we need to restart
 
-	n.setupSignals(proc)
+	n.setupSignals()
 
 	checkSecs, _ := n.Cfg.GetFloat32("gop", "nelly_check_secs", 1.0)
 	ticker := time.Tick(time.Second * time.Duration(checkSecs))
@@ -132,7 +133,7 @@ func (n *nelly) Finish() {
 	n.App.Finish()
 }
 
-func (n *nelly) setupSignals(proc *os.Process) {
+func (n *nelly) setupSignals() {
 	n.sigChan = make(chan os.Signal, 10) // 10 is arbitrary, we just need to keep up
 	//    signal.Notify(n.sigChan, syscall.SIGTERM, syscall.SIGKILL)
 	signal.Notify(n.sigChan)
@@ -182,15 +183,24 @@ func loadNelly() *nelly {
 	return &n
 }
 
-func (n *nelly) startChild() *os.Process {
-	attr := new(os.ProcAttr)
-	proc, err := os.StartProcess(n.exeName, nil, attr)
+func (n *nelly) startChild() *exec.Cmd {
+
+	// TODO:
+	// 1. Set process name (e.g. "[tellus]")
+	cmd := exec.Command(n.exeName)
+	// Dup Nelly's stdout/stderr into the child.
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	// Give the child process a nice name
+	cmd.Args[0] = "[" + n.App.AppName + "]"
+	
+	err := cmd.Start()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to start process [%s]: %s", n.exeName, err.Error()))
 	}
-	n.Info("Started executable [%s] pid %d", n.exeName, proc.Pid)
+	n.Info("Started executable [%s] pid %d", n.exeName, cmd.Process.Pid)
 
-	return proc
+	return cmd
 }
 
 func (n *nelly) okToStart() bool {
