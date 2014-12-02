@@ -222,22 +222,22 @@ func (a *App) registerGopHandlers() {
 
 func (a *App) maybeRegisterPProfHandlers() {
 	if enableProfiling, _ := a.Cfg.GetBool("gop", "enable_profiling_urls", false); enableProfiling {
-		a.HandleFunc("/pprof/cmdline", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/cmdline", func(g *Req) error {
 			pprof.Cmdline(g.W, g.R)
 			return nil
 		})
 
-		a.HandleFunc("/pprof/symbol", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/symbol", func(g *Req) error {
 			pprof.Symbol(g.W, g.R)
 			return nil
 		})
 
-		a.HandleFunc("/pprof/profile", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/profile", func(g *Req) error {
 			pprof.Profile(g.W, g.R)
 			return nil
 		})
 
-		a.HandleFunc("/pprof/{profile_name}", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/{profile_name}", func(g *Req) error {
 			vars := mux.Vars(g.R)
 			h := pprof.Handler(vars["profile_name"])
 			h.ServeHTTP(g.W, g.R)
