@@ -33,9 +33,9 @@ import (
 type common struct {
 	Logger
 	loggerIndex int
-	Cfg     Config
-	Stats   StatsdClient
-	Decoder *schema.Decoder
+	Cfg         Config
+	Stats       StatsdClient
+	Decoder     *schema.Decoder
 }
 
 // Represents a gop application. Create with gop.Init(projectName, applicationName)
@@ -55,7 +55,7 @@ type App struct {
 	doingGraceful            bool
 	accessLog                *os.File
 	suppressedAccessLogLines int
-	logDir			 string
+	logDir                   string
 }
 
 // The function signature your http handlers need.
@@ -104,12 +104,14 @@ func NotFound(body string) error {
 	err.Body = body
 	return error(err)
 }
+
 // Helper to generate a BadRequest HTTPError
 func BadRequest(body string) error {
 	err := ErrBadRequest
 	err.Body = body
 	return error(err)
 }
+
 // Helper to generate an InternalServerError HTTPError
 func ServerError(body string) error {
 	err := ErrServerError
@@ -289,7 +291,7 @@ func (g *Req) finished() {
 	g.app.Stats.Inc(codeStatsKey, 1)
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
-	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow{
+	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow {
 		g.Error("Slow request [%s] took %s", g.R.URL, reqDuration)
 	} else {
 		g.Debug("Request took %s", reqDuration)
@@ -327,6 +329,11 @@ func (g *Req) SendText(v []byte) error {
 // []byte must be in UTF-8 encoding.
 func (g *Req) SendHtml(v []byte) error {
 	return g.send("text/html; charset=utf-8", v)
+}
+
+// SendHtml sends the given []byte with the mimetype "application/octet-stream".
+func (g *Req) SendOctet(v []byte) error {
+	return g.send("application/octet-stream", v)
 }
 
 // SendJson marshals the given v into JSON and sends it with the
@@ -375,8 +382,6 @@ func (g *Req) ParamDuration(key string) (time.Duration, error) {
 	}
 	return time.ParseDuration(s)
 }
-
-
 
 func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
@@ -598,7 +603,7 @@ func (g *Req) checkRequiredParams(requiredParams []string) error {
 	for _, requiredParam := range requiredParams {
 		_, ok := params[requiredParam]
 		if !ok {
-			return HTTPError {
+			return HTTPError{
 				Code: http.StatusBadRequest,
 				Body: "Missing required parameter: " + requiredParam,
 			}
