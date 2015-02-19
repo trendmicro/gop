@@ -2,10 +2,11 @@ package gop
 
 import (
 	"encoding/json"
-	"github.com/vaughan0/go-ini"
 	"io/ioutil"
 	"log"
 	"time"
+
+	"github.com/vaughan0/go-ini"
 
 	"fmt"
 	"os"
@@ -411,7 +412,7 @@ func (cfg *Config) GetPath(sectionName, optionName string, defaultValue string) 
 
 	vStr, found := cfg.Get(sectionName, optionName, "")
 	if !found {
-		return defaultValue, false
+		return expandTildeToHome(defaultValue), false
 	}
 	v := expandTildeToHome(vStr)
 	return v, true
