@@ -1,11 +1,12 @@
 package gop
 
 import (
-	"github.com/rcrowley/goagain"
 	"net"
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/rcrowley/goagain"
 )
 
 func (a *App) StartGracefulRestart(reason string) {
@@ -93,5 +94,4 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 	}
 
 	a.Info("Graceful restart/exit - with %d pending reqs", a.currentReqs)
-	a.Finish()
 }
