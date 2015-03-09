@@ -88,7 +88,17 @@ func (cm *ConfigMap) saveToJsonFile(fname string) error {
 
 func (a *App) loadAppConfigFile(requireConfig bool) {
 	// We do not have logging set up yet. We just panic() on error.
+
+	// Set up a null config so we have the structure in place on early return
 	source := make(ConfigMap)
+	persistentOverrides := make(ConfigMap)
+
+	a.Cfg = Config{
+		source:              source,
+		persistentOverrides: persistentOverrides,
+		transientOverrides:  make(ConfigMap),
+		onChangeCallbacks:   make([]func(cfg *Config), 0),
+	}
 
 	configFname := a.getConfigFilename(false)
 	err := source.loadFromIniFile(configFname)
@@ -111,26 +121,18 @@ func (a *App) loadAppConfigFile(requireConfig bool) {
 		}
 	}
 
-	persistentOverrides := make(ConfigMap)
-	overrideFname := configFname + ".override"
-	fi, err := os.Stat(overrideFname)
+	a.Cfg.overrideFname = configFname + ".override"
+	fi, err := os.Stat(a.Cfg.overrideFname)
 	if err == nil && fi.Size() > 0 {
-		err = persistentOverrides.loadFromJsonFile(overrideFname)
+		err = persistentOverrides.loadFromJsonFile(a.Cfg.overrideFname)
 		if err != nil {
 			// Don't have logging yet, so use log. and hope
-			log.Printf("Failed to load or parse override config file [%s]: %s\n", overrideFname, err.Error())
+			log.Printf("Failed to load or parse override config file [%s]: %s\n", a.Cfg.overrideFname, err.Error())
 			// Don't want to fail here, just continue without overrides
 			err = nil
 		}
 	}
 
-	a.Cfg = Config{
-		source:              source,
-		persistentOverrides: persistentOverrides,
-		transientOverrides:  make(ConfigMap),
-		overrideFname:       overrideFname,
-		onChangeCallbacks:   make([]func(cfg *Config), 0),
-	}
 }
 
 // Get an option value for the given sectionName.
