@@ -83,15 +83,17 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 			}
 		case <-tickChan:
 			{
-				if a.currentReqs-a.currentWSReqs >= 0 {
+				appStats := a.GetStats()
+				if appStats.currentReqs-appStats.currentWSReqs >= 0 {
 					a.Error("Graceful restart - no pending non-ws requests - time to die")
 					waiting = false
 				} else {
-					a.Info("Graceful restart - tick still have %d pending reqs", a.currentReqs)
+					a.Info("Graceful restart - tick still have %d pending reqs", appStats.currentReqs)
 				}
 			}
 		}
 	}
 
-	a.Info("Graceful restart/exit - with %d pending reqs", a.currentReqs)
+	appStats := a.GetStats()
+	a.Info("Graceful restart/exit - with %d pending reqs", appStats.currentReqs)
 }

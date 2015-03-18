@@ -2,14 +2,15 @@ package gop
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	"io/ioutil"
 	"net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 )
 
 var decoder = schema.NewDecoder() // Single-instance so struct info cached
@@ -64,13 +65,13 @@ func handleConfig(g *Req) error {
 		if err != nil {
 			return ServerError("Failed to read value: " + err.Error())
 		}
-		
-		if len(value)==0{
+
+		if len(value) == 0 {
 			//Empty body is usually the result of a missing type header and evaluates to an empty string,
 			//which will prevent tellus from starting if the config setting is not string-valued
 			return BadRequest("Empty request body - I'm assuming you didn't mean to do that.")
 		}
-		
+
 		g.Cfg.PersistentOverride(section, key, string(value))
 	}
 
@@ -164,12 +165,13 @@ func handleStatus(g *Req) error {
 		NumGoros      int
 		RequestInfo   []requestInfo
 	}
-	appDuration := time.Since(g.app.startTime).Seconds()
+	appStats := g.app.GetStats()
+	appDuration := time.Since(appStats.startTime).Seconds()
 	status := requestStatus{
 		ProjectName:   g.app.ProjectName,
 		AppName:       g.app.AppName,
 		Pid:           os.Getpid(),
-		StartTime:     g.app.startTime,
+		StartTime:     appStats.startTime,
 		UptimeSeconds: appDuration,
 		NumGoros:      runtime.NumGoroutine(),
 	}

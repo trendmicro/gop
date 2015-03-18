@@ -14,11 +14,12 @@ package gop
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
-	"os"
 
 	"fmt"
 	"net"
@@ -39,21 +40,26 @@ type common struct {
 	Decoder     *schema.Decoder
 }
 
+type AppStats struct {
+	startTime     time.Time
+	currentReqs   int
+	currentWSReqs int
+	totalReqs     int
+}
+
 // Represents a gop application. Create with gop.Init(projectName, applicationName)
 type App struct {
 	common
 
-	AppName                  string
-	ProjectName              string
-	GorillaRouter            *mux.Router
-	listener                 net.Listener
-	wantReq                  chan *wantReq
-	doneReq                  chan *Req
-	getReqs                  chan chan *Req
-	startTime                time.Time
-	currentReqs              int
-	currentWSReqs            int
-	totalReqs                int
+	AppName       string
+	ProjectName   string
+	GorillaRouter *mux.Router
+	listener      net.Listener
+	wantReq       chan *wantReq
+	doneReq       chan *Req
+	getReqs       chan chan *Req
+	getStats      chan chan AppStats
+
 	doingGraceful            bool
 	accessLog                *os.File
 	suppressedAccessLogLines int
@@ -151,7 +157,7 @@ func doInit(projectName, appName string, requireConfig bool) *App {
 		wantReq:       make(chan *wantReq),
 		doneReq:       make(chan *Req),
 		getReqs:       make(chan chan *Req),
-		startTime:     time.Now(),
+		getStats:      make(chan chan AppStats),
 	}
 
 	app.loadAppConfigFile(requireConfig)
@@ -218,81 +224,89 @@ func (a *App) setProcessGroupForNelly() {
 func (a *App) requestMaker() {
 	nextReqId := 0
 	openReqs := make(map[int]*Req)
+	appStats := AppStats{startTime: time.Now()}
+
 	for {
 		select {
 		case wantReq := <-a.wantReq:
-			{
-				realRemoteIP := wantReq.r.RemoteAddr
-				isHTTPS := false
-				useXF, _ := a.Cfg.GetBool("gop", "use_xf_headers", false)
-				if useXF {
-					xff := wantReq.r.Header.Get("X-Forwarded-For")
-					if xff != "" {
-						ips := strings.Split(xff, ",")
-						for i, ip := range ips {
-							ips[i] = strings.TrimSpace(ip)
-						}
-						// The only trustworthy component is the *last* (and only if we
-						// are behind nginx or other proxy which is stripping x-f-f from incoming requests)
-						realRemoteIP = ips[len(ips)-1]
+			realRemoteIP := wantReq.r.RemoteAddr
+			isHTTPS := false
+			useXF, _ := a.Cfg.GetBool("gop", "use_xf_headers", false)
+			if useXF {
+				xff := wantReq.r.Header.Get("X-Forwarded-For")
+				if xff != "" {
+					ips := strings.Split(xff, ",")
+					for i, ip := range ips {
+						ips[i] = strings.TrimSpace(ip)
 					}
-					xfp := wantReq.r.Header.Get("X-Forwarded-Proto")
-					isHTTPS = strings.ToLower(xfp) == "https"
+					// The only trustworthy component is the *last* (and only if we
+					// are behind nginx or other proxy which is stripping x-f-f from incoming requests)
+					realRemoteIP = ips[len(ips)-1]
 				}
-				req := Req{
-					common: common{
-						Logger:  a.Logger,
-						Cfg:     a.Cfg,
-						Stats:   a.Stats,
-						Decoder: a.Decoder,
-					},
-
-					id:           nextReqId,
-					app:          a,
-					startTime:    time.Now(),
-					R:            wantReq.r,
-					RealRemoteIP: realRemoteIP,
-					IsHTTPS:      isHTTPS,
-				}
-				openReqs[req.id] = &req
-				nextReqId++
-				a.totalReqs++
-				a.currentReqs++
-				if wantReq.websocket {
-					a.currentWSReqs++
-				}
-				a.Stats.Gauge("http_reqs", int64(a.totalReqs))
-				a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
-				a.Stats.Gauge("current_ws_reqs", int64(a.currentWSReqs))
-				wantReq.reply <- &req
+				xfp := wantReq.r.Header.Get("X-Forwarded-Proto")
+				isHTTPS = strings.ToLower(xfp) == "https"
 			}
+			req := Req{
+				common: common{
+					Logger:  a.Logger,
+					Cfg:     a.Cfg,
+					Stats:   a.Stats,
+					Decoder: a.Decoder,
+				},
+
+				id:           nextReqId,
+				app:          a,
+				startTime:    time.Now(),
+				R:            wantReq.r,
+				RealRemoteIP: realRemoteIP,
+				IsHTTPS:      isHTTPS,
+			}
+			openReqs[req.id] = &req
+			nextReqId++
+			appStats.totalReqs++
+			appStats.currentReqs++
+			if wantReq.websocket {
+				appStats.currentWSReqs++
+			}
+			a.Stats.Gauge("http_reqs", int64(appStats.totalReqs))
+			a.Stats.Gauge("current_http_reqs", int64(appStats.currentReqs))
+			a.Stats.Gauge("current_ws_reqs", int64(appStats.currentWSReqs))
+			wantReq.reply <- &req
 		case doneReq := <-a.doneReq:
-			{
-				_, found := openReqs[doneReq.id]
-				if !found {
-					a.Error("BUG! Unknown request id [%d] being retired")
-				} else {
-					doneReq.finished()
-					a.currentReqs--
-					a.Stats.Gauge("current_http_reqs", int64(a.currentReqs))
-					if doneReq.WS != nil {
-						a.currentWSReqs--
-						a.Stats.Gauge("current_ws_reqs", int64(a.currentWSReqs))
-					}
-					delete(openReqs, doneReq.id)
+			_, found := openReqs[doneReq.id]
+			if !found {
+				a.Error("BUG! Unknown request id [%d] being retired")
+			} else {
+				doneReq.finished(appStats)
+				appStats.currentReqs--
+				a.Stats.Gauge("current_http_reqs", int64(appStats.currentReqs))
+				if doneReq.WS != nil {
+					appStats.currentWSReqs--
+					a.Stats.Gauge("current_ws_reqs", int64(appStats.currentWSReqs))
 				}
+				delete(openReqs, doneReq.id)
 			}
 		case reply := <-a.getReqs:
-			{
-				go func() {
-					for _, req := range openReqs {
-						reply <- req
-					}
-					close(reply)
-				}()
-			}
+			go func() {
+				for _, req := range openReqs {
+					reply <- req
+				}
+				close(reply)
+			}()
+		case statsReplyChan := <-a.getStats:
+			go func() {
+				statsReplyChan <- appStats
+				close(statsReplyChan)
+			}()
 		}
 	}
+}
+
+func (a *App) GetStats() AppStats {
+	reqStats := make(chan AppStats)
+	a.getStats <- reqStats
+	appStats := <-reqStats // Caller closes after writing one value
+	return appStats
 }
 
 // Ask requestMaker for a request
@@ -302,7 +316,7 @@ func (a *App) getReq(r *http.Request, websocket bool) *Req {
 	return <-reply
 }
 
-func (g *Req) finished() {
+func (g *Req) finished(appStats AppStats) {
 	context.Clear(g.R) // Cleanup  gorilla stash
 
 	reqDuration := time.Since(g.startTime)
@@ -321,14 +335,14 @@ func (g *Req) finished() {
 
 	// Tidy up request finalistion (requestMaker, req.finish() method, app.requestFinished())
 	restartReqs, _ := g.Cfg.GetInt("gop", "max_requests", 0)
-	if restartReqs > 0 && g.app.totalReqs > restartReqs {
+	if restartReqs > 0 && appStats.totalReqs > restartReqs {
 		g.Error("Graceful restart after max_requests: %d", restartReqs)
 		g.app.StartGracefulRestart("Max requests reached")
 	}
 
 	gcEveryReqs, _ := g.Cfg.GetInt("gop", "gc_requests", 0)
-	if gcEveryReqs > 0 && g.app.totalReqs%gcEveryReqs == 0 {
-		g.Info("Forcing GC after %d reqs", g.app.totalReqs)
+	if gcEveryReqs > 0 && appStats.totalReqs%gcEveryReqs == 0 {
+		g.Info("Forcing GC after %d reqs", appStats.totalReqs)
 		runtime.GC()
 	}
 }
@@ -433,12 +447,13 @@ func (a *App) watchdog() {
 			// Continue without
 		}
 
+		appStats := a.GetStats()
 		a.Info("TICK: sys=%d,alloc=%d,fds=%d,current_req=%d,total_req=%d,goros=%d",
 			sysMemBytes,
 			allocMemBytes,
 			numFDs,
-			a.currentReqs,
-			a.totalReqs,
+			appStats.currentReqs,
+			appStats.totalReqs,
 			numGoros)
 		a.Stats.Gauge("mem.sys", sysMemBytes)
 		a.Stats.Gauge("mem.alloc", allocMemBytes)
@@ -463,7 +478,7 @@ func (a *App) watchdog() {
 		}
 
 		restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
-		appRunTime := time.Since(a.startTime).Seconds()
+		appRunTime := time.Since(appStats.startTime).Seconds()
 		if restartAfterSecs > 0 && appRunTime > float64(restartAfterSecs) {
 			a.Error("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
 			a.StartGracefulRestart("Run time limit reached")
