@@ -1,13 +1,14 @@
 package gop
 
 import (
-	"github.com/cactus/go-statsd-client/statsd"
 	"os"
 	"strings"
+
+	"github.com/cactus/go-statsd-client/statsd"
 )
 
 type StatsdClient struct {
-	client *statsd.Client
+	client statsd.Statter
 	rate   float32
 	app    *App
 }
