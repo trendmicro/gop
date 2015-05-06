@@ -323,6 +323,11 @@ func (g *Req) finished(appStats AppStats) {
 
 	g.app.WriteAccessLog(g, reqDuration)
 
+	// Don't run time-based code for websockets
+	if g.WS != nil {
+		return
+	}
+
 	codeStatsKey := fmt.Sprintf("http_status.%d", g.W.code)
 	g.app.Stats.Inc(codeStatsKey, 1)
 
@@ -720,11 +725,6 @@ func getMemInfo() (int64, int64) {
 	runtime.ReadMemStats(&memStats)
 	// There's lots of stuff in here.
 	return int64(memStats.Sys), int64(memStats.Alloc)
-}
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
 }
 
 func (a *App) HandleWebSocketFunc(u string, h HandlerFunc, requiredParams ...string) *mux.Route {
