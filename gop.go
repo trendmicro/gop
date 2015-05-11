@@ -713,7 +713,16 @@ func (a *App) Run() {
 
 	listenAddr, _ := a.Cfg.Get("gop", "listen_addr", ":http")
 	listenNet, _ := a.Cfg.Get("gop", "listen_net", "tcp")
-	a.goAgainListenAndServe(listenNet, listenAddr)
+	gracefulRestart, _ := a.Cfg.GetBool("gop", "graceful_restart", true)
+	if gracefulRestart {
+		a.goAgainListenAndServe(listenNet, listenAddr)
+	} else {
+		listener, err := net.Listen(listenNet, listenAddr)
+		if err != nil {
+			a.Fatalf("Can't listen on [%s:%s]: %s", listenNet, listenAddr, err.Error())
+		}
+		a.Serve(listener)
+	}
 }
 
 func (a *App) Serve(l net.Listener) {
