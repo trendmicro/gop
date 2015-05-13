@@ -135,15 +135,16 @@ func handleMem(g *Req) error {
 
 func handleStack(g *Req) error {
 	buf := make([]byte, 1024)
+	traceLen := 0
 	for {
-		traceLen := runtime.Stack(buf, true)
+		traceLen = runtime.Stack(buf, true)
 		if traceLen < len(buf) {
 			break
 		}
 		// Try a bigger buf
 		buf = make([]byte, 2*len(buf))
 	}
-	g.W.Write(buf)
+	g.W.Write(buf[:traceLen])
 	return nil
 }
 
