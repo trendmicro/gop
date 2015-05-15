@@ -700,6 +700,12 @@ func (a *App) HandleFunc(u string, h HandlerFunc, requiredParams ...string) *mux
 	return a.GorillaRouter.HandleFunc(u, gopHandler)
 }
 
+func (a *App) HandleMap(hm map[string]func(g *Req) error) {
+	for k, v := range hm {
+		a.HandleFunc(k, v)
+	}
+}
+
 func (a *App) Run() {
 	a.setProcessGroupForNelly()
 
