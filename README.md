@@ -78,8 +78,6 @@ You should be able to access your handler at <http://localhost:8888/hello>.
 
 ## Getting help
 
-Visit the [Gop website](http://trendmicro.github.io/gop).
-
 Issues and bugs can be reported at the
 [Github issue tracker for gop](https://github.com/trendmicro/gop/issues).
 
