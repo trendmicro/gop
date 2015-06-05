@@ -216,7 +216,7 @@ func (a *App) setProcessGroupForNelly() {
 	mypid := syscall.Getpid()
 	err := syscall.Setpgid(mypid, mypid)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to setprgp]: %s\n", mypid, mypid, err.Error()))
+		panic(fmt.Sprintf("Failed to setprgp]: %d - %d - %s\n", mypid, mypid, err.Error()))
 	}
 }
 
