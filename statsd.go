@@ -15,8 +15,14 @@ type StatsdClient struct {
 
 func (a *App) initStatsd() {
 	statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
+	prefix := []string{}
+	if p, ok := a.Cfg.Get("gop", "statsd_prefix", ""); ok {
+		prefix = append(prefix, p)
+	}
 	hostname, _ := os.Hostname()
-	statsdPrefix := strings.Join([]string{a.ProjectName, a.AppName, strings.Replace(hostname, ".", "_", -1)}, ".")
+	prefix = append(prefix, a.ProjectName, a.AppName, strings.Replace(hostname, ".", "_", -1))
+	statsdPrefix := strings.Join(prefix, ".")
+	a.Debug("STATSD PREFIX %s", statsdPrefix)
 	client, err := statsd.New(statsdHostport, statsdPrefix)
 	if err != nil {
 		// App will probably fall over due to nil client. That's OK.
