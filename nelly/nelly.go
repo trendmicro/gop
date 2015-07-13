@@ -94,7 +94,7 @@ LOOP:
 // It returns "true" if the answer is yes and there are no grace pings left
 //
 func (n *nelly) checkForDeath() bool {
-	
+
 	// Check if there are any zombies to eat. Process.Wait() doesn't
 	// support the POSIX WNOHANG for portability reasons, so let's use
 	// the syscall.Wait4() which is POSIX-only.
@@ -194,7 +194,7 @@ func (n *nelly) startChild() *exec.Cmd {
 	cmd.Stderr = os.Stderr
 	// Give the child process a nice name
 	cmd.Args[0] = "[" + n.App.AppName + "]"
-	
+
 	err := cmd.Start()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to start process [%s]: %s", n.exeName, err.Error()))
