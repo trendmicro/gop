@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/trendmicro/gop"
 	"io"
 	"os"
 	"time"
+
+	"github.com/cocoonlife/gop"
 )
 
 type MyApp struct {
