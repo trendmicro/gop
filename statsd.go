@@ -3,6 +3,7 @@ package gop
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 )
@@ -62,4 +63,9 @@ func (s *StatsdClient) Inc(stat string, value int64) {
 func (s *StatsdClient) Timing(stat string, delta int64) {
 	s.app.Debug("STATSD TIMING %s %d", stat, delta)
 	_ = s.client.Timing(stat, delta, s.rate)
+}
+
+func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
+	s.app.Debug("STATSD TIMING %s %s", stat, delta)
+	_ = s.client.TimingDuration(stat, delta, s.rate)
 }
