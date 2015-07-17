@@ -435,7 +435,7 @@ func (g *Req) ParamBool(key string) (bool, error) {
 }
 
 func (a *App) watchdog() {
-	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 300)
+	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 30)
 	ticker := time.Tick(time.Second * time.Duration(repeat))
 
 	for {
