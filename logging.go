@@ -2,12 +2,13 @@ package gop
 
 import (
 	"fmt"
-	"github.com/cocoonlife/timber"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cocoonlife/timber"
 )
 
 type Logger timber.Logger
@@ -92,6 +93,22 @@ func (a *App) initLogging() {
 	if fellbackToCWD {
 		l.Error("Logging directory does not exist - logging to stdout")
 	}
+
+	// logentries logging service
+	// TODO: This needs to be handled in resetLogging
+	if token, ok := a.Cfg.Get("gop", "log_logentries_token", ""); ok {
+		if le, err := NewLogEntriesWriter(token); err == nil {
+			logger := timber.ConfigLogger{
+				LogWriter: le,
+				Level:     timber.DEBUG,
+				Formatter: timber.NewPatFormatter("[%D %T] [%L] %S %M"),
+			}
+			l.AddLogger(logger)
+		} else {
+			l.Errorf("Error creating logentries client: %s", err.Error())
+		}
+	}
+
 	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.resetLogging() })
 }
 
