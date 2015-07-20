@@ -69,3 +69,15 @@ func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
 	s.app.Debug("STATSD TIMING %s %s", stat, delta)
 	_ = s.client.TimingDuration(stat, delta, s.rate)
 }
+
+// TimingTrack records the time something took to run using a defer, very good
+// for timing a function call, just add a defer at the top like so:
+//     func timeMe() {
+//         defer app.Stats.TimingTrack("timeMe.run_time", time.Now())
+//         // rest of code, can return anywhere and run time tracked
+//     }
+func (s *StatsdClient) TimingTrack(stat string, start time.Time) {
+	elapsed := time.Since(start)
+	s.app.Debugf("STATSD TIMING %s %s", stat, elapsed)
+	_ = s.client.TimingDuration(stat, elapsed, s.rate)
+}
