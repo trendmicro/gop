@@ -25,8 +25,8 @@ func (w *LogglyWriter) LogWrite(msg string) {
 	// loggly client work.
 	// TODO: Add a "level" key for info, error..., proper timestamp etc
 	// Buffers the message for async send
-	lmsg := loggly.Message{"type": msg}
-	if err := w.c.Send(lmsg); err != nil {
+	// TODO - Stat for the bytes written return?
+	if _, err := w.c.Write([]byte(msg)); err != nil {
 		// TODO: What is best todo here as if we log it will loop?
 		fmt.Println("loggly send error: %s", err.Error())
 	}
