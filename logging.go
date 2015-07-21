@@ -104,8 +104,25 @@ func (a *App) initLogging() {
 				Formatter: timber.NewPatFormatter("[%D %T] [%L] %S %M"),
 			}
 			l.AddLogger(logger)
+			l.Infof("Added Logentries logger")
 		} else {
 			l.Errorf("Error creating logentries client: %s", err.Error())
+		}
+	}
+
+	// Loggly logging service
+	// TODO: This needs to be handled in resetLogging
+	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
+		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName); err == nil {
+			logger := timber.ConfigLogger{
+				LogWriter: lw,
+				Level:     timber.DEBUG,
+				Formatter: timber.NewPatFormatter("[%D %T] [%L] %S %M"),
+			}
+			l.AddLogger(logger)
+			l.Infof("Added Loggly logger")
+		} else {
+			l.Errorf("Error creating loggly client: %s", err.Error())
 		}
 	}
 
