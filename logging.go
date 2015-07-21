@@ -113,11 +113,12 @@ func (a *App) initLogging() {
 	// Loggly logging service
 	// TODO: This needs to be handled in resetLogging
 	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
-		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName); err == nil {
+		hostName, _ := os.Hostname()
+		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName, hostName); err == nil {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
 				Level:     timber.DEBUG,
-				Formatter: timber.NewPatFormatter("[%D %T] [%L] %S %M"),
+				Formatter: timber.NewJSONFormatter(),
 			}
 			l.AddLogger(logger)
 			l.Infof("Added Loggly logger")
