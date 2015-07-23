@@ -1,6 +1,7 @@
 package gop
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +13,16 @@ import (
 )
 
 type Logger timber.Logger
+
+func string2Level(logLevelStr string) (timber.Level, error) {
+	logLevelStr = strings.ToUpper(logLevelStr)
+	for logLevel, levelStr := range timber.LongLevelStrings {
+		if logLevelStr == levelStr {
+			return timber.Level(logLevel), nil
+		}
+	}
+	return 0, errors.New("Not found")
+}
 
 func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 	defaultLogPattern := "[%D %T] [%L] %M"
@@ -51,11 +62,35 @@ func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 	}
 
 	logLevelStr, _ := a.Cfg.Get("gop", "log_level", "INFO")
-	logLevelStr = strings.ToUpper(logLevelStr)
-	for logLevel, levelStr := range timber.LongLevelStrings {
-		if logLevelStr == levelStr {
-			configLogger.Level = timber.Level(logLevel)
-			break
+	logLevel, err := string2Level(logLevelStr)
+	if err == nil {
+		configLogger.Level = timber.Level(logLevel)
+	}
+
+	granularsPrefix, _ := a.Cfg.Get("gop", "log_granulars_prefix", "")
+	granularsStrs, _ := a.Cfg.GetList("gop", "log_granulars", nil)
+	if granularsStrs != nil {
+		configLogger.Granulars = make(map[string]timber.Level)
+	GRANULARS:
+		for _, granStr := range granularsStrs {
+			bits := strings.Split(granStr, ":")
+			if len(bits) != 2 {
+				continue GRANULARS
+			}
+			pkgPart := bits[0]
+			pkgLevel := bits[1]
+
+			if pkgPart == "" || pkgLevel == "" {
+				continue GRANULARS
+			}
+			pkgName := pkgPart
+			if granularsPrefix != "" {
+				pkgName = granularsPrefix + "/" + pkgPart
+			}
+			logLevel, err := string2Level(pkgLevel)
+			if err == nil {
+				configLogger.Granulars[pkgName] = logLevel
+			}
 		}
 	}
 
