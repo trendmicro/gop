@@ -23,7 +23,7 @@ func (a *App) initStatsd() {
 	hostname, _ := os.Hostname()
 	prefix = append(prefix, a.ProjectName, a.AppName, strings.Replace(hostname, ".", "_", -1))
 	statsdPrefix := strings.Join(prefix, ".")
-	a.Debug("STATSD PREFIX %s", statsdPrefix)
+	a.Fine("STATSD PREFIX %s", statsdPrefix)
 	client, err := statsd.New(statsdHostport, statsdPrefix)
 	if err != nil {
 		// App will probably fall over due to nil client. That's OK.
@@ -41,32 +41,32 @@ func (a *App) initStatsd() {
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {
-	s.app.Debug("STATSD DEC %s %d", stat, value)
+	s.app.Fine("STATSD DEC %s %d", stat, value)
 	_ = s.client.Dec(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Gauge(stat string, value int64) {
-	s.app.Debug("STATSD GAUGE %s %d", stat, value)
+	s.app.Fine("STATSD GAUGE %s %d", stat, value)
 	_ = s.client.Gauge(stat, value, s.rate)
 }
 
 func (s *StatsdClient) GaugeDelta(stat string, value int64) {
-	s.app.Debug("STATSD GAUGEDELTA %s %d", stat, value)
+	s.app.Fine("STATSD GAUGEDELTA %s %d", stat, value)
 	_ = s.client.GaugeDelta(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Inc(stat string, value int64) {
-	s.app.Debug("STATSD INC %s %d", stat, value)
+	s.app.Fine("STATSD INC %s %d", stat, value)
 	_ = s.client.Inc(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Timing(stat string, delta int64) {
-	s.app.Debug("STATSD TIMING %s %d", stat, delta)
+	s.app.Fine("STATSD TIMING %s %d", stat, delta)
 	_ = s.client.Timing(stat, delta, s.rate)
 }
 
 func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
-	s.app.Debug("STATSD TIMING %s %s", stat, delta)
+	s.app.Fine("STATSD TIMING %s %s", stat, delta)
 	_ = s.client.TimingDuration(stat, delta, s.rate)
 }
 
@@ -80,6 +80,6 @@ func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
 // the time timeMe statred
 func (s *StatsdClient) TimingTrack(stat string, start time.Time) {
 	elapsed := time.Since(start)
-	s.app.Debugf("STATSD TIMING %s %s", stat, elapsed)
+	s.app.Finef("STATSD TIMING %s %s", stat, elapsed)
 	_ = s.client.TimingDuration(stat, elapsed, s.rate)
 }
