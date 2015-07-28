@@ -136,7 +136,7 @@ func (a *App) initLogging() {
 			logger := timber.ConfigLogger{
 				LogWriter: le,
 				Level:     timber.DEBUG,
-				Formatter: timber.NewPatFormatter("[%D %T] [%L] %S %M"),
+				Formatter: timber.NewJSONFormatter(),
 			}
 			l.AddLogger(logger)
 			l.Infof("Added Logentries logger")
