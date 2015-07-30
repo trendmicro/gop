@@ -1,7 +1,6 @@
 package gop
 
 import (
-	"os"
 	"strings"
 	"time"
 
@@ -25,8 +24,8 @@ func (a *App) configureStatsd(cfg *Config) {
 	if p, ok := a.Cfg.Get("gop", "statsd_prefix", ""); ok {
 		prefix = append(prefix, p)
 	}
-	hostname, _ := os.Hostname()
-	prefix = append(prefix, a.ProjectName, a.AppName, strings.Replace(hostname, ".", "_", -1))
+	hostname := strings.Replace(a.Hostname(), ".", "_", -1)
+	prefix = append(prefix, a.ProjectName, a.AppName, hostname)
 	statsdPrefix := strings.Join(prefix, ".")
 	a.Fine("STATSD PREFIX %s", statsdPrefix)
 	client, err := statsd.New(statsdHostport, statsdPrefix)
@@ -35,8 +34,6 @@ func (a *App) configureStatsd(cfg *Config) {
 		// We *could* panic below, but lets try and continue at least
 		a.Error("Failed to create statsd client: " + err.Error())
 		return
-	} else {
-		a.Infof("Sending stats to [%s] with prefix [%s]", statsdHostport, statsdPrefix)
 	}
 
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
@@ -46,6 +43,8 @@ func (a *App) configureStatsd(cfg *Config) {
 		rate:   rate,
 		app:    a,
 	}
+
+	a.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", statsdHostport, statsdPrefix, rate)
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {

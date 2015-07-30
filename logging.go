@@ -148,8 +148,7 @@ func (a *App) initLogging() {
 	// Loggly logging service
 	// TODO: This needs to be handled in resetLogging
 	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
-		hostName, _ := os.Hostname()
-		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName, hostName); err == nil {
+		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName, a.Hostname()); err == nil {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
 				Level:     timber.DEBUG,
@@ -219,7 +218,7 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 	if uaLine == "" {
 		uaLine = "-"
 	}
-	hostname, _ := os.Hostname()
+	hostname := a.Hostname()
 	logLine := fmt.Sprintf("%s %.3f %s %s %s %s %s %d %d %s %s\n",
 		hostname,
 		dur.Seconds(),

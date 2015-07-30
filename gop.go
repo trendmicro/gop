@@ -179,6 +179,22 @@ func doInit(projectName, appName string, requireConfig bool) *App {
 	return app
 }
 
+// Hostname returns the apps hostname, os.Hostname() by default, but this can
+// be overridden via gop.hostname config. This call is used when setting up
+// logging and stats allowing a gop app to lie about it's hostname, useful in
+// environments where the hostname may be the same across machines.
+func (a *App) Hostname() string {
+	if name, ok := a.Cfg.Get("gop", "hostname", ""); ok {
+		return name
+	}
+	name, err := os.Hostname()
+	if err != nil {
+		// TODO - Is it safe to log here?
+		name = "UNKNOWN"
+	}
+	return name
+}
+
 // Shut down the app cleanly. (Needed to flush logs)
 func (a *App) Finish() {
 	// Start a log flush
