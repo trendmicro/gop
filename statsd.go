@@ -15,6 +15,11 @@ type StatsdClient struct {
 }
 
 func (a *App) initStatsd() {
+	a.configureStatsd(nil)
+	a.Cfg.AddOnChangeCallback(a.configureStatsd)
+}
+
+func (a *App) configureStatsd(cfg *Config) {
 	statsdHostport, _ := a.Cfg.Get("gop", "statsd_hostport", "localhost:8125")
 	prefix := []string{}
 	if p, ok := a.Cfg.Get("gop", "statsd_prefix", ""); ok {
@@ -30,9 +35,12 @@ func (a *App) initStatsd() {
 		// We *could* panic below, but lets try and continue at least
 		a.Error("Failed to create statsd client: " + err.Error())
 		return
+	} else {
+		a.Infof("Sending stats to [%s] with prefix [%s]", statsdHostport, statsdPrefix)
 	}
 
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
+	// TODO: Need to protect a.Stats from race
 	a.Stats = StatsdClient{
 		client: client,
 		rate:   rate,
