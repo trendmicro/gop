@@ -97,21 +97,38 @@ func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 	return configLogger, fellbackToCWD
 }
 
+func (a *App) setLogger(name string, logger timber.ConfigLogger) {
+	l := timber.Global
+	if i, ok := a.loggerMap[name]; ok {
+		l.SetLogger(i, logger)
+	} else {
+		a.loggerMap[name] = l.AddLogger(logger)
+	}
+}
+
 func (a *App) initLogging() {
-
-	configLogger, fellbackToCWD := a.makeConfigLogger()
-
 	// *Don't* create a NewTImber here. Logs are only flushed on Close() and if we
 	// have more than one timber, it's easy to only Close() one of them...
 	l := timber.Global
-
 	a.Logger = l
-	a.loggerIndex = l.AddLogger(configLogger)
 
 	// Set up the default go logger to go here too, so 3rd party
 	// module logging plays nicely
 	log.SetFlags(0)
 	log.SetOutput(l)
+
+	a.configureLogging()
+	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.configureLogging() })
+}
+
+func (a *App) configureLogging() {
+	l := timber.Global
+
+	configLogger, fellbackToCWD := a.makeConfigLogger()
+	a.setLogger("configLogger", configLogger)
+	if fellbackToCWD {
+		l.Error("Logging directory does not exist - logging to stdout")
+	}
 
 	doAccessLog, _ := a.Cfg.GetBool("gop", "access_log_enable", false)
 	if doAccessLog {
@@ -125,12 +142,7 @@ func (a *App) initLogging() {
 		}
 	}
 
-	if fellbackToCWD {
-		l.Error("Logging directory does not exist - logging to stdout")
-	}
-
 	// logentries logging service
-	// TODO: This needs to be handled in resetLogging
 	if token, ok := a.Cfg.Get("gop", "log_logentries_token", ""); ok {
 		if le, err := NewLogEntriesWriter(token); err == nil {
 			logger := timber.ConfigLogger{
@@ -138,7 +150,7 @@ func (a *App) initLogging() {
 				Level:     timber.DEBUG,
 				Formatter: timber.NewJSONFormatter(),
 			}
-			l.AddLogger(logger)
+			a.setLogger("logentries", logger)
 			l.Infof("Added Logentries logger")
 		} else {
 			l.Errorf("Error creating logentries client: %s", err.Error())
@@ -146,28 +158,20 @@ func (a *App) initLogging() {
 	}
 
 	// Loggly logging service
-	// TODO: This needs to be handled in resetLogging
 	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
-		if lw, err := NewLogglyWriter(token, a.ProjectName, a.AppName, a.Hostname()); err == nil {
+		tags := []string{a.ProjectName, a.AppName, a.Hostname()}
+		if lw, err := NewLogglyWriter(token, tags...); err == nil {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
 				Level:     timber.DEBUG,
 				Formatter: timber.NewJSONFormatter(),
 			}
-			l.AddLogger(logger)
-			l.Infof("Added Loggly logger")
+			a.setLogger("loggly", logger)
+			l.Infof("Added Loggly logger with tags:%s", tags)
 		} else {
 			l.Errorf("Error creating loggly client: %s", err.Error())
 		}
 	}
-
-	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.resetLogging() })
-}
-
-func (a *App) resetLogging() {
-	configLogger, _ := a.makeConfigLogger()
-	l := timber.Global
-	l.SetLogger(a.loggerIndex, configLogger)
 }
 
 func (a *App) closeLogging() {

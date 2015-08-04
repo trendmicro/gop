@@ -35,6 +35,7 @@ import (
 type common struct {
 	Logger
 	loggerIndex int
+	loggerMap   map[string]int
 	Cfg         Config
 	Stats       StatsdClient
 	Decoder     *schema.Decoder
@@ -149,7 +150,8 @@ func InitCmd(projectName, appName string) *App {
 func doInit(projectName, appName string, requireConfig bool) *App {
 	app := &App{
 		common: common{
-			Decoder: schema.NewDecoder(),
+			Decoder:   schema.NewDecoder(),
+			loggerMap: make(map[string]int),
 		},
 		AppName:       appName,
 		ProjectName:   projectName,
@@ -264,10 +266,11 @@ func (a *App) requestMaker() {
 			}
 			req := Req{
 				common: common{
-					Logger:  a.Logger,
-					Cfg:     a.Cfg,
-					Stats:   a.Stats,
-					Decoder: a.Decoder,
+					Logger:    a.Logger,
+					loggerMap: make(map[string]int),
+					Cfg:       a.Cfg,
+					Stats:     a.Stats,
+					Decoder:   a.Decoder,
 				},
 
 				id:           nextReqId,
