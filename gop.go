@@ -34,11 +34,9 @@ import (
 // Stuff we include in both App and Req, for convenience
 type common struct {
 	Logger
-	loggerIndex int
-	loggerMap   map[string]int
-	Cfg         Config
-	Stats       StatsdClient
-	Decoder     *schema.Decoder
+	Cfg     Config
+	Stats   StatsdClient
+	Decoder *schema.Decoder
 }
 
 type AppStats struct {
@@ -65,6 +63,7 @@ type App struct {
 	accessLog                *os.File
 	suppressedAccessLogLines int
 	logDir                   string
+	loggerMap                map[string]int
 }
 
 // The function signature your http handlers need.
@@ -150,8 +149,7 @@ func InitCmd(projectName, appName string) *App {
 func doInit(projectName, appName string, requireConfig bool) *App {
 	app := &App{
 		common: common{
-			Decoder:   schema.NewDecoder(),
-			loggerMap: make(map[string]int),
+			Decoder: schema.NewDecoder(),
 		},
 		AppName:       appName,
 		ProjectName:   projectName,
@@ -160,6 +158,7 @@ func doInit(projectName, appName string, requireConfig bool) *App {
 		doneReq:       make(chan *Req),
 		getReqs:       make(chan chan *Req),
 		getStats:      make(chan chan AppStats),
+		loggerMap:     make(map[string]int),
 	}
 
 	app.loadAppConfigFile(requireConfig)
@@ -266,11 +265,10 @@ func (a *App) requestMaker() {
 			}
 			req := Req{
 				common: common{
-					Logger:    a.Logger,
-					loggerMap: make(map[string]int),
-					Cfg:       a.Cfg,
-					Stats:     a.Stats,
-					Decoder:   a.Decoder,
+					Logger:  a.Logger,
+					Cfg:     a.Cfg,
+					Stats:   a.Stats,
+					Decoder: a.Decoder,
 				},
 
 				id:           nextReqId,
