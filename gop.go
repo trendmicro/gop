@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -470,13 +471,21 @@ func (a *App) watchdog() {
 		}
 
 		appStats := a.GetStats()
-		a.Info("TICK: sys=%d,alloc=%d,fds=%d,current_req=%d,total_req=%d,goros=%d",
+		gcStats := debug.GCStats{PauseQuantiles: make([]time.Duration, 3)}
+		debug.ReadGCStats(&gcStats)
+		gcMin := gcStats.PauseQuantiles[0]
+		gcMedian := gcStats.PauseQuantiles[1]
+		gcMax := gcStats.PauseQuantiles[2]
+		a.Info("TICK: sys=%d,alloc=%d,fds=%d,current_req=%d,total_req=%d,goros=%d,gc=%v/%v/%v",
 			sysMemBytes,
 			allocMemBytes,
 			numFDs,
 			appStats.currentReqs,
 			appStats.totalReqs,
-			numGoros)
+			numGoros,
+			gcMin,
+			gcMedian,
+			gcMax)
 		a.Stats.Gauge("mem.sys", sysMemBytes)
 		a.Stats.Gauge("mem.alloc", allocMemBytes)
 		a.Stats.Gauge("numfds", numFDs)
