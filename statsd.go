@@ -44,7 +44,7 @@ func (a *App) configureStatsd(cfg *Config) {
 		app:    a,
 	}
 
-	a.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", statsdHostport, statsdPrefix, rate)
+	a.Finef("STATSD sending to [%s] with prefix [%s] at rate [%f]", statsdHostport, statsdPrefix, rate)
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {
