@@ -47,6 +47,16 @@ type AppStats struct {
 	totalReqs     int
 }
 
+func (as AppStats) String() string {
+	uptime := time.Since(as.startTime)
+	return fmt.Sprintf("Started at %s - uptime %s. %d reqs, %d websockets %d total reqs",
+		as.startTime,
+		uptime,
+		as.currentReqs,
+		as.currentWSReqs,
+		as.totalReqs)
+}
+
 // Represents a gop application. Create with gop.Init(projectName, applicationName)
 type App struct {
 	common

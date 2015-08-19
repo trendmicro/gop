@@ -144,6 +144,10 @@ func handleStack(g *Req) error {
 		// Try a bigger buf
 		buf = make([]byte, 2*len(buf))
 	}
+	appStats := g.app.GetStats()
+
+	g.W.Write([]byte(fmt.Sprintf("Stack trace for %s:%s at %s\n", g.app.ProjectName, g.app.AppName, time.Now())))
+	g.W.Write([]byte(appStats.String() + "\n\n"))
 	g.W.Write(buf[:traceLen])
 	return nil
 }
