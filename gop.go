@@ -183,7 +183,7 @@ func doInit(projectName, appName string, requireConfig bool) *App {
 	app.initLogging()
 
 	maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4*runtime.NumCPU())
-	app.Debug("Setting maxprocs to %d\n", maxProcs)
+	app.Debug("Setting maxprocs to %d", maxProcs)
 	runtime.GOMAXPROCS(maxProcs)
 
 	app.initStatsd()
