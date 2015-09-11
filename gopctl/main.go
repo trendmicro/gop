@@ -19,8 +19,7 @@ type GopCtl struct {
 	gopApp  string
 	Host    string
 	Port    int
-	pretty  bool
-	created bool
+	Created bool
 }
 
 type cmdFunc func(cmd *cobra.Command, args []string)
@@ -68,7 +67,7 @@ func NewGopCtl() *GopCtl {
 	ctl.addCmd("requests", "Print the list of current active requests", ctl.requests)
 
 	c := ctl.addCmd("goros", "Print the list of current goroutines", ctl.goros)
-	c.Flags().BoolVar(&ctl.created, "created", false, "show creating routine for each goro.")
+	c.Flags().BoolVar(&ctl.Created, "created", false, "show creating routine for each goro.")
 
 	ctl.addCmd("top", "Top like summary", ctl.top)
 
@@ -207,7 +206,7 @@ func (ctl *GopCtl) goros(cmd *cobra.Command, args []string) {
 	for _, goro := range ctl.Stack().Goros() {
 		lines := goro.RoutineLines()
 		fmt.Println(goro.Head(), lines[0])
-		if ctl.created && len(lines) > 2 {
+		if ctl.Created && len(lines) > 2 {
 			fmt.Println("\t", lines[len(lines)-3])
 		}
 	}
