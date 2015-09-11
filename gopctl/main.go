@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"time"
@@ -14,8 +15,10 @@ import (
 // cmd line for gop apps, set config, view memory etc
 type GopCtl struct {
 	*cobra.Command
-	gopApp  string
 	C       *gop.Client
+	gopApp  string
+	Host    string
+	Port    int
 	pretty  bool
 	created bool
 }
@@ -29,21 +32,23 @@ func NewGopCtl() *GopCtl {
 		Use:   "gopctl",
 		Short: "Command line tool to remote control a gop app.",
 		Example: `	gopctl --app=http://localhost:1732 status
-	gopctl --app=localhost:1732 mem
-	gopctl --app=:1742 stack
+	gopctl --host=localhost --port=1732 mem
+	gopctl -P1742 stack
 
-	gopctl --app=:1732 get
-	gopctl --app=:1732 get gop
-	gopctl --app=:1732 get gop log_level
+	gopctl -P1732 get
+	gopctl -P1732 get gop
+	gopctl -P1732 get gop log_level
 
-	gopctl --app=:1732 set gop log_level debug`,
+	gopctl -P1732 set gop log_level debug
+
+	gopctl -H192.168.1.123 -P1742 top`,
 		Run:              func(cmd *cobra.Command, args []string) { cmd.Help() },
 		PersistentPreRun: ctl.preRun,
 	}
 	// Persistent flags availiable to all (sub) commands.
-	ctl.PersistentFlags().StringVarP(&ctl.gopApp, "app", "", ":1732",
-		"base URL for the gop process you want to control")
-	//ctl.PersistentFlags().BoolVarP(&ctl.pretty, "pretty", "", false, "pretty print JSON etc in output")
+	ctl.PersistentFlags().StringVarP(&ctl.gopApp, "app", "", "http://localhost:1732", "base URL for the gop process you want to control")
+	ctl.PersistentFlags().IntVarP(&ctl.Port, "port", "P", 1732, "port of gop app")
+	ctl.PersistentFlags().StringVarP(&ctl.Host, "host", "H", "localhost", "host of gop app")
 
 	ctl.addCmd("status", "Print the current app status.", func(cmd *cobra.Command, args []string) {
 		fmt.Print(ctl.Status())
@@ -87,7 +92,9 @@ func NewGopCtl() *GopCtl {
 
 // preRun for all commands, sets up the client from options
 func (ctl *GopCtl) preRun(cmd *cobra.Command, args []string) {
-	if c, err := gop.NewClient(ctl.gopApp); err != nil {
+	u, _ := url.Parse(ctl.gopApp)
+	u.Host = fmt.Sprintf("%s:%d", ctl.Host, ctl.Port)
+	if c, err := gop.NewClient(u.String()); err != nil {
 		log.Fatalf("Failed to create client: %s", err.Error())
 	} else {
 		ctl.C = c
