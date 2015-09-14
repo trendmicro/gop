@@ -25,15 +25,14 @@ type StatusInfo struct {
 }
 
 func (status StatusInfo) String() string {
-	out := ""
-	out += fmt.Sprintln("AppName", "=", status.AppName)
-	out += fmt.Sprintln("ProjectName", "=", status.ProjectName)
-	out += fmt.Sprintln("Pid", "=", status.Pid)
-	out += fmt.Sprintln("StartTime", "=", status.StartTime)
-	out += fmt.Sprintln("UptimeSeconds", "=", status.UptimeSeconds)
-	out += fmt.Sprintln("NumGoros", "=", status.NumGoros)
-	out += fmt.Sprintln("NumRequests", "=", len(status.RequestInfo))
-	return out
+	return fmt.Sprintf("%s:%s started %s for %fs. pid %d, %d reqs, %d goros",
+		status.ProjectName,
+		status.AppName,
+		status.StartTime,
+		status.UptimeSeconds,
+		status.Pid,
+		len(status.RequestInfo),
+		status.NumGoros)
 }
 
 // RequestInfo details of an open request

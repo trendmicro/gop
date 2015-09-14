@@ -61,12 +61,14 @@ func NewGopCtl() *GopCtl {
 		fmt.Print(ctl.Stack())
 	})
 
-	ctl.addCmd("get [section] [key]", "Get all config, a sections config or key value", ctl.cfgGet)
+	c := ctl.addCmd("get [section] [key]", "Get all config, a sections config or key value", ctl.cfgGet)
+	c.Aliases = append(c.Aliases, "cfg")
+
 	ctl.addCmd("set <section> <key> <value>", "Set a config keys value", ctl.cfgSet)
 
 	ctl.addCmd("requests", "Print the list of current active requests", ctl.requests)
 
-	c := ctl.addCmd("goros", "Print the list of current goroutines", ctl.goros)
+	c = ctl.addCmd("goro", "Print the list of current goroutines", ctl.goros)
 	c.Flags().BoolVar(&ctl.Created, "created", false, "show creating routine for each goro.")
 
 	ctl.addCmd("top", "Top like summary", ctl.top)

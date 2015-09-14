@@ -49,7 +49,7 @@ type AppStats struct {
 
 func (as AppStats) String() string {
 	uptime := time.Since(as.startTime)
-	return fmt.Sprintf("Started at %s - uptime %s. %d reqs, %d websockets %d total reqs",
+	return fmt.Sprintf("Started at %s - uptime %s. %d reqs, %d ws %d total reqs",
 		as.startTime,
 		uptime,
 		as.currentReqs,
