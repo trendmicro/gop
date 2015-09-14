@@ -25,7 +25,7 @@ type StatusInfo struct {
 }
 
 func (status StatusInfo) String() string {
-	return fmt.Sprintf("%s:%s started %s for %fs. pid %d, %d reqs, %d goros",
+	return fmt.Sprintf("%s:%s started %s, up %0.2fs, pid %d, %d reqs, %d goros",
 		status.ProjectName,
 		status.AppName,
 		status.StartTime,
