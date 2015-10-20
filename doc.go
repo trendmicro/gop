@@ -62,7 +62,7 @@ by gop.Init(). This property has type Config.
 
 Logging
 
-GOP uses Timber (https://github.com/jbert/timber) for logging. A *gop.App instance embeds the
+GOP uses Timber (https://github.com/cocoonlife/timber) for logging. A *gop.App instance embeds the
 interface of timber.Logger, which means all of its methods can be accessed like this:
 
   app := gop.Init("myproject", "myapp")

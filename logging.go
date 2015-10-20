@@ -2,7 +2,7 @@ package gop
 
 import (
 	"fmt"
-	"github.com/jbert/timber"
+	"github.com/cocoonlife/timber"
 	"log"
 	"os"
 	"strconv"
