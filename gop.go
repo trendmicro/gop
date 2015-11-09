@@ -466,6 +466,7 @@ func (a *App) watchdog() {
 	repeat, _ := a.Cfg.GetInt("gop", "watchdog_secs", 30)
 	ticker := time.Tick(time.Second * time.Duration(repeat))
 
+	firstLoop := true
 	for {
 		sysMemBytesLimit, _ := a.Cfg.GetInt64("gop", "sysmem_bytes_limit", 0)
 		allocMemBytesLimit, _ := a.Cfg.GetInt64("gop", "allocmem_bytes_limit", 0)
@@ -496,10 +497,19 @@ func (a *App) watchdog() {
 			gcMin,
 			gcMedian,
 			gcMax)
-		a.Stats.Gauge("mem.sys", sysMemBytes)
-		a.Stats.Gauge("mem.alloc", allocMemBytes)
-		a.Stats.Gauge("numfds", numFDs)
-		a.Stats.Gauge("numgoro", numGoros)
+		if firstLoop {
+			// Zero some gauges at start, otherwise restarts get lost in the graphs
+			// and it looks like app is continously using memory.
+			a.Stats.Gauge("mem.sys", 0)
+			a.Stats.Gauge("mem.alloc", 0)
+			a.Stats.Gauge("numfds", 0)
+			a.Stats.Gauge("numgoro", 0)
+		} else {
+			a.Stats.Gauge("mem.sys", sysMemBytes)
+			a.Stats.Gauge("mem.alloc", allocMemBytes)
+			a.Stats.Gauge("numfds", numFDs)
+			a.Stats.Gauge("numgoro", numGoros)
+		}
 
 		if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
 			a.Error("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
@@ -524,6 +534,7 @@ func (a *App) watchdog() {
 			a.Error("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
 			a.StartGracefulRestart("Run time limit reached")
 		}
+		firstLoop = false
 		<-ticker
 	}
 }
