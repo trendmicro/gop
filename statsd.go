@@ -2,15 +2,21 @@ package gop
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 )
 
 type StatsdClient struct {
-	client statsd.Statter
-	rate   float32
-	app    *App
+	sync.Mutex
+	client      statsd.Statter
+	hostPort    string
+	prefix      string
+	rate        float32
+	app         *App
+	lastAttempt time.Time
+	retryDur    time.Duration
 }
 
 func (a *App) initStatsd() {
@@ -27,53 +33,87 @@ func (a *App) configureStatsd(cfg *Config) {
 	hostname := strings.Replace(a.Hostname(), ".", "_", -1)
 	prefix = append(prefix, a.ProjectName, a.AppName, hostname)
 	statsdPrefix := strings.Join(prefix, ".")
-	a.Fine("STATSD PREFIX %s", statsdPrefix)
-	client, err := statsd.New(statsdHostport, statsdPrefix)
-	if err != nil {
-		// App will probably fall over due to nil client. That's OK.
-		// We *could* panic below, but lets try and continue at least
-		a.Error("Failed to create statsd client: " + err.Error())
-		return
-	}
-
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
+	retryDur, _ := a.Cfg.GetDuration("gop", "statsd_rate", time.Minute*1)
 	// TODO: Need to protect a.Stats from race
 	a.Stats = StatsdClient{
-		client: client,
-		rate:   rate,
-		app:    a,
+		client:   nil,
+		hostPort: statsdHostport,
+		prefix:   statsdPrefix,
+		rate:     rate,
+		app:      a,
+		retryDur: retryDur,
 	}
+	a.Stats.connect()
+}
 
-	a.Finef("STATSD sending to [%s] with prefix [%s] at rate [%f]", statsdHostport, statsdPrefix, rate)
+func (s *StatsdClient) connect() bool {
+	s.Lock()
+	defer s.Unlock()
+	if s.client != nil {
+		return true
+	}
+	now := time.Now()
+	if now.Sub(s.lastAttempt) < s.retryDur {
+		return false
+	}
+	var err error
+	s.client, err = statsd.New(s.hostPort, s.prefix)
+	s.lastAttempt = now
+	if err != nil {
+		s.app.Error("STATSD Failed to create client (stats will noop): " + err.Error())
+		//client, err = statsd.NewNoopClient()
+		return false
+	}
+	s.app.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", s.hostPort, s.prefix, s.rate)
+	return true
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {
 	s.app.Fine("STATSD DEC %s %d", stat, value)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.Dec(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Gauge(stat string, value int64) {
 	s.app.Fine("STATSD GAUGE %s %d", stat, value)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.Gauge(stat, value, s.rate)
 }
 
 func (s *StatsdClient) GaugeDelta(stat string, value int64) {
 	s.app.Fine("STATSD GAUGEDELTA %s %d", stat, value)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.GaugeDelta(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Inc(stat string, value int64) {
 	s.app.Fine("STATSD INC %s %d", stat, value)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.Inc(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Timing(stat string, delta int64) {
 	s.app.Fine("STATSD TIMING %s %d", stat, delta)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.Timing(stat, delta, s.rate)
 }
 
 func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
 	s.app.Fine("STATSD TIMING %s %s", stat, delta)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.TimingDuration(stat, delta, s.rate)
 }
 
@@ -88,5 +128,8 @@ func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
 func (s *StatsdClient) TimingTrack(stat string, start time.Time) {
 	elapsed := time.Since(start)
 	s.app.Finef("STATSD TIMING %s %s", stat, elapsed)
+	if !s.connect() {
+		return
+	}
 	_ = s.client.TimingDuration(stat, elapsed, s.rate)
 }
