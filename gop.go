@@ -477,7 +477,7 @@ func (a *App) watchdog() {
 		numFDs, err := fdsInUse()
 		numGoros := int64(runtime.NumGoroutine())
 		if err != nil {
-			a.Error("Failed to get number of fds in use: %s", err.Error())
+			a.Debug("Failed to get number of fds in use: %s", err.Error())
 			// Continue without
 		}
 
