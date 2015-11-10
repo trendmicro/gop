@@ -9,12 +9,12 @@ import (
 )
 
 type StatsdClient struct {
+	*App
 	sync.Mutex
 	client     statsd.Statter
 	hostPort   string
 	prefix     string
 	rate       float32
-	app        *App
 	reconEvery time.Duration
 	reconTimer *time.Timer
 }
@@ -37,11 +37,11 @@ func (a *App) configureStatsd(cfg *Config) {
 	recon, _ := a.Cfg.GetDuration("gop", "statsd_reconnect_every", time.Minute*1)
 	// TODO: Need to protect a.Stats from race
 	a.Stats = StatsdClient{
+		App:        a,
 		client:     nil,
 		hostPort:   statsdHostport,
 		prefix:     statsdPrefix,
 		rate:       rate,
-		app:        a,
 		reconEvery: recon,
 	}
 	a.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", a.Stats.hostPort, a.Stats.prefix, a.Stats.rate)
@@ -61,10 +61,10 @@ func (s *StatsdClient) connect() bool {
 	var err error
 	s.client, err = statsd.New(s.hostPort, s.prefix)
 	if err != nil {
-		s.app.Error("STATSD Failed to create client (stats will noop): " + err.Error())
+		s.Error("STATSD Failed to create client (stats will noop): " + err.Error())
 		s.client, err = statsd.NewNoopClient()
 	} else {
-		s.app.Finef("STATSD sending to [%s] with prefix [%s] at rate [%f]", s.hostPort, s.prefix, s.rate)
+		s.Finef("STATSD sending to [%s] with prefix [%s] at rate [%f]", s.hostPort, s.prefix, s.rate)
 	}
 	if s.reconEvery != 0 {
 		s.reconTimer = time.AfterFunc(s.reconEvery, func() { s.connect() })
@@ -80,32 +80,32 @@ func (s *StatsdClient) c() statsd.Statter {
 }
 
 func (s *StatsdClient) Dec(stat string, value int64) {
-	s.app.Fine("STATSD DEC %s %d", stat, value)
+	s.Fine("STATSD DEC %s %d", stat, value)
 	_ = s.c().Dec(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Gauge(stat string, value int64) {
-	s.app.Fine("STATSD GAUGE %s %d", stat, value)
+	s.Fine("STATSD GAUGE %s %d", stat, value)
 	_ = s.c().Gauge(stat, value, s.rate)
 }
 
 func (s *StatsdClient) GaugeDelta(stat string, value int64) {
-	s.app.Fine("STATSD GAUGEDELTA %s %d", stat, value)
+	s.Fine("STATSD GAUGEDELTA %s %d", stat, value)
 	_ = s.c().GaugeDelta(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Inc(stat string, value int64) {
-	s.app.Fine("STATSD INC %s %d", stat, value)
+	s.Fine("STATSD INC %s %d", stat, value)
 	_ = s.c().Inc(stat, value, s.rate)
 }
 
 func (s *StatsdClient) Timing(stat string, delta int64) {
-	s.app.Fine("STATSD TIMING %s %d", stat, delta)
+	s.Fine("STATSD TIMING %s %d", stat, delta)
 	_ = s.c().Timing(stat, delta, s.rate)
 }
 
 func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
-	s.app.Fine("STATSD TIMING %s %s", stat, delta)
+	s.Fine("STATSD TIMING %s %s", stat, delta)
 	_ = s.c().TimingDuration(stat, delta, s.rate)
 }
 
@@ -119,6 +119,6 @@ func (s *StatsdClient) TimingDuration(stat string, delta time.Duration) {
 // the time timeMe statred
 func (s *StatsdClient) TimingTrack(stat string, start time.Time) {
 	elapsed := time.Since(start)
-	s.app.Finef("STATSD TIMING %s %s", stat, elapsed)
+	s.Finef("STATSD TIMING %s %s", stat, elapsed)
 	_ = s.c().TimingDuration(stat, elapsed, s.rate)
 }
