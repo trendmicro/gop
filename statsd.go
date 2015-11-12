@@ -36,7 +36,7 @@ func (a *App) configureStatsd(cfg *Config) {
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
 	recon, _ := a.Cfg.GetDuration("gop", "statsd_reconnect_every", time.Minute*1)
 	// TODO: Need to protect a.Stats from race
-	a.Stats = StatsdClient{
+	a.Stats = &StatsdClient{
 		App:        a,
 		client:     nil,
 		hostPort:   statsdHostport,

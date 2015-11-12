@@ -36,7 +36,7 @@ import (
 type common struct {
 	Logger
 	Cfg     Config
-	Stats   StatsdClient
+	Stats   *StatsdClient
 	Decoder *schema.Decoder
 }
 
