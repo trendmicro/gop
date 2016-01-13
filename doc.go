@@ -97,8 +97,11 @@ The following handlers are available:
     When the HTTP verb is PUT, GOP will override the config setting specified by :section and :key (the value
     should be specified in the body of the request).
 
-    When the HTTP verb is not PUT, :section and :key are ignored and the method returns the complete config,
-    including any overrides. In fact, you can omit :section and :key altogether, i.e. "/gop/config" will suffice.
+    An example command line to change a config value using curl is:
+
+    echo -n info | curl -s -T - http://127.0.0.1:1732/gop/config/gop/log_level
+
+    When the HTTP verb is GET, you can read a specific key value. You can also omit :key or both :key and :section to return sections or the entire config.
 
  /gop/status
 
