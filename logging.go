@@ -28,7 +28,7 @@ func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 	defaultLogPattern := "[%D %T] [%L] %M"
 	filenamesByDefault, _ := a.Cfg.GetBool("gop", "log_filename", false)
 	if filenamesByDefault {
-		defaultLogPattern = "[%D %T] [%L] %S %M"
+		defaultLogPattern = "[%D %T] [%L] %s %M"
 	}
 	logPattern, _ := a.Cfg.Get("gop", "log_pattern", defaultLogPattern)
 
