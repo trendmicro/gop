@@ -85,7 +85,7 @@ func (a *App) initLogging() {
 		var err error
 		a.accessLog, err = os.OpenFile(accessLogFilename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
-			l.Error("Can't open access log; %s", err.Error())
+			l.Errorf("Can't open access log; %s", err.Error())
 		}
 	}
 
@@ -105,7 +105,7 @@ func (a *App) closeLogging() {
 	if a.accessLog != nil {
 		err := a.accessLog.Close()
 		if err != nil {
-			a.Error("Error closing access log: %s", err.Error())
+			a.Errorf("Error closing access log: %s", err.Error())
 		}
 	}
 	timber.Close()
@@ -165,6 +165,6 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 		quote(uaLine))
 	_, err := req.app.accessLog.WriteString(logLine)
 	if err != nil {
-		a.Error("Failed to write to access log: %s", err.Error())
+		a.Errorf("Failed to write to access log: %s", err.Error())
 	}
 }

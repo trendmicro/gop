@@ -19,7 +19,7 @@ func (a *App) StartGracefulRestart(reason string) {
 	myPid := os.Getpid()
 	me, err := os.FindProcess(myPid)
 	if err != nil {
-		a.Error("Can't FindProcess myself - can't graceful restart. This probably won't end well: %s", err.Error())
+		a.Errorf("Can't FindProcess myself - can't graceful restart. This probably won't end well: %s", err.Error())
 		return
 	}
 	a.Info("Sending SIGUSR2 to %d", myPid)
@@ -77,7 +77,7 @@ func (a *App) goAgainListenAndServe(listenNet, listenAddr string) {
 		select {
 		case <-timeoutChan:
 			{
-				a.Error("Graceful restart timed out after %d seconds - being less graceful and exiting", waitSecs)
+				a.Errorf("Graceful restart timed out after %d seconds - being less graceful and exiting", waitSecs)
 				waiting = false
 			}
 		case <-tickChan:
