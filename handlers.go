@@ -94,7 +94,6 @@ func handleConfig(g *Req) error {
 		configMap := g.Cfg.AsMap()
 		return g.SendJson("config", configMap)
 	}
-	return nil
 }
 
 func handleMem(g *Req) error {
@@ -124,7 +123,6 @@ func handleMem(g *Req) error {
 			msg += info + "\n"
 		}
 		return g.SendText([]byte(msg))
-		return nil
 	}
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
