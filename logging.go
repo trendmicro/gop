@@ -12,6 +12,17 @@ import (
 	"github.com/cocoonlife/timber"
 )
 
+type LogFormatterFactory interface {
+	Create() timber.LogFormatter
+}
+
+type TimberLogFormatterFactory struct {
+}
+
+func (t *TimberLogFormatterFactory) Create() timber.LogFormatter {
+	return timber.NewJSONFormatter()
+}
+
 type Logger timber.Logger
 
 func string2Level(logLevelStr string) (timber.Level, error) {
@@ -148,7 +159,7 @@ func (a *App) configureLogging() {
 			logger := timber.ConfigLogger{
 				LogWriter: le,
 				Level:     timber.DEBUG,
-				Formatter: timber.NewJSONFormatter(),
+				Formatter: a.logFormatterFactory.Create(),
 			}
 			a.setLogger("logentries", logger)
 			l.Infof("Added Logentries logger")
@@ -164,7 +175,7 @@ func (a *App) configureLogging() {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
 				Level:     timber.DEBUG,
-				Formatter: timber.NewJSONFormatter(),
+				Formatter: a.logFormatterFactory.Create(),
 			}
 			a.setLogger("loggly", logger)
 			l.Infof("Added Loggly logger with tags:%s", tags)
