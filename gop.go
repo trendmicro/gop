@@ -75,6 +75,7 @@ type App struct {
 	suppressedAccessLogLines int
 	logDir                   string
 	loggerMap                map[string]int
+	logFormatterFactory      LogFormatterFactory
 }
 
 // The function signature your http handlers need.
@@ -149,27 +150,38 @@ type wantReq struct {
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
 func Init(projectName, appName string) *App {
-	return doInit(projectName, appName, true)
+	return doInit(projectName, appName, true, &TimberLogFormatterFactory{})
 }
 
 // For test code and command line tools
 func InitCmd(projectName, appName string) *App {
-	return doInit(projectName, appName, false)
+	return doInit(projectName, appName, false, &TimberLogFormatterFactory{})
 }
 
-func doInit(projectName, appName string, requireConfig bool) *App {
+// Set up the application. Reads config. Panic if runtime environment is deficient.
+func InitWithLogFormatter(projectName, appName string, logFormatterFactory LogFormatterFactory) *App {
+	return doInit(projectName, appName, true, logFormatterFactory)
+}
+
+// For test code and command line tools
+func InitCmdWithLogFormatter(projectName, appName string, logFormatterFactory LogFormatterFactory) *App {
+	return doInit(projectName, appName, false, logFormatterFactory)
+}
+
+func doInit(projectName, appName string, requireConfig bool, logFormatterFactory LogFormatterFactory) *App {
 	app := &App{
 		common: common{
 			Decoder: schema.NewDecoder(),
 		},
-		AppName:       appName,
-		ProjectName:   projectName,
-		GorillaRouter: mux.NewRouter(),
-		wantReq:       make(chan *wantReq),
-		doneReq:       make(chan *Req),
-		getReqs:       make(chan chan *Req),
-		getStats:      make(chan chan AppStats),
-		loggerMap:     make(map[string]int),
+		AppName:             appName,
+		ProjectName:         projectName,
+		GorillaRouter:       mux.NewRouter(),
+		wantReq:             make(chan *wantReq),
+		doneReq:             make(chan *Req),
+		getReqs:             make(chan chan *Req),
+		getStats:            make(chan chan AppStats),
+		loggerMap:           make(map[string]int),
+		logFormatterFactory: logFormatterFactory,
 	}
 
 	app.loadAppConfigFile(requireConfig)
