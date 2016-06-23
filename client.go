@@ -192,16 +192,15 @@ func (c *Client) GetText(path string) (txt string, err error) {
 	url.Path += ("/" + path)
 	if resp, err := http.Get(url.String()); err == nil {
 		defer resp.Body.Close()
-		body := []byte{}
+		if resp.StatusCode != 200 {
+			return "", fmt.Errorf("GET %s failed: Status:%s", url, resp.Status)
+		}
+		var body []byte
 		if body, err = ioutil.ReadAll(resp.Body); err == nil {
 			return string(body), nil
 		} else {
 			return "", err
 		}
-		if resp.StatusCode != 200 {
-			return string(body), fmt.Errorf("%s failed: Status:%s", url, resp.Status)
-		}
-		return string(body), err
 	} else {
 		return "", err
 	}
@@ -272,7 +271,7 @@ func (c *Client) SetCfg(section, key, val string) (resptxt string, err error) {
 		return "", err
 	}
 	if response.StatusCode != 200 {
-		fmt.Errorf("ERROR. Status:", response.StatusCode)
+		return "", fmt.Errorf("ERROR. Status:", response.StatusCode)
 	}
 	return string(contents), nil
 }
