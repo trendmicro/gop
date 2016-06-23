@@ -2,6 +2,7 @@ package gop
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/segmentio/go-loggly"
 )
@@ -28,7 +29,7 @@ func (w *LogglyWriter) LogWrite(msg string) {
 	// TODO - Stat for the bytes written return?
 	if _, err := w.c.Write([]byte(msg)); err != nil {
 		// TODO: What is best todo here as if we log it will loop?
-		fmt.Println("loggly send error: %s", err.Error())
+		fmt.Fprintf(os.Stderr, "loggly send error: %s\n", err.Error())
 	}
 }
 
