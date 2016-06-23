@@ -373,7 +373,7 @@ func (g *Req) finished(appStats AppStats) {
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
 	if reqDuration.Seconds() > float64(slowReqSecs) && !g.CanBeSlow {
-		g.Error("Slow request [%s] took %s", g.R.URL, reqDuration)
+		g.Errorf("Slow request [%s] took %s", g.R.URL.Host, reqDuration)
 	} else {
 		g.Debug("Request took %s", reqDuration)
 	}
@@ -381,7 +381,7 @@ func (g *Req) finished(appStats AppStats) {
 	// Tidy up request finalistion (requestMaker, req.finish() method, app.requestFinished())
 	restartReqs, _ := g.Cfg.GetInt("gop", "max_requests", 0)
 	if restartReqs > 0 && appStats.totalReqs > restartReqs {
-		g.Error("Graceful restart after max_requests: %d", restartReqs)
+		g.Errorf("Graceful restart after max_requests: %d", restartReqs)
 		g.app.StartGracefulRestart("Max requests reached")
 	}
 
@@ -418,7 +418,7 @@ func (g *Req) SendHtml(v []byte) error {
 func (g *Req) SendJson(what string, v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
-		g.Error("Failed to encode %s as json: %s", what, err.Error())
+		g.Errorf("Failed to encode %s as json: %s", what, err.Error())
 		return ServerError("Failed to encode json: " + err.Error())
 	}
 	return g.send("application/json", append(json, '\n'))
@@ -524,26 +524,26 @@ func (a *App) watchdog() {
 		}
 
 		if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
-			a.Error("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
+			a.Errorf("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
 			a.StartGracefulRestart("Sys Memory limit reached")
 		}
 		if allocMemBytesLimit > 0 && allocMemBytes >= allocMemBytesLimit {
-			a.Error("ALLOC MEM LIMIT REACHED [%d >= %d] - starting graceful restart", allocMemBytes, allocMemBytesLimit)
+			a.Errorf("ALLOC MEM LIMIT REACHED [%d >= %d] - starting graceful restart", allocMemBytes, allocMemBytesLimit)
 			a.StartGracefulRestart("Alloc Memory limit reached")
 		}
 		if numFDsLimit > 0 && numFDs >= numFDsLimit {
-			a.Error("NUM FDS LIMIT REACHED [%d >= %d] - starting graceful restart", numFDs, numFDsLimit)
+			a.Errorf("NUM FDS LIMIT REACHED [%d >= %d] - starting graceful restart", numFDs, numFDsLimit)
 			a.StartGracefulRestart("Number of fds limit reached")
 		}
 		if numGorosLimit > 0 && numGoros >= numGorosLimit {
-			a.Error("NUM GOROS LIMIT REACHED [%d >= %d] - starting graceful restart", numGoros, numGorosLimit)
+			a.Errorf("NUM GOROS LIMIT REACHED [%d >= %d] - starting graceful restart", numGoros, numGorosLimit)
 			a.StartGracefulRestart("Number of goros limit reached")
 		}
 
 		restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
 		appRunTime := time.Since(appStats.startTime).Seconds()
 		if restartAfterSecs > 0 && appRunTime > float64(restartAfterSecs) {
-			a.Error("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
+			a.Errorf("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
 			a.StartGracefulRestart("Run time limit reached")
 		}
 		firstLoop = false
@@ -632,7 +632,7 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 	}
 
 	if g.W.HasWritten() {
-		g.Error("PANIC after handler had written data: %s", httpErr.Body)
+		g.Errorf("PANIC after handler had written data: %s", httpErr.Body)
 	} else {
 		httpErr.Write(g.W)
 	}
@@ -716,7 +716,7 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 			if gopRequest.W.HasWritten() {
 				// Ah. We have an error we'd like to send. But it's too late.
 				// Bad handler, no biscuit.
-				a.Error("Handler returned http error after writing data [%s] - discarding error", httpErr)
+				a.Errorf("Handler returned http error after writing data [%s] - discarding error", httpErr)
 			} else {
 				httpErr.Write(gopRequest.W)
 			}
