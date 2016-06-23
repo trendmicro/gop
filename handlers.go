@@ -80,23 +80,20 @@ func handleConfig(g *Req) error {
 			strVal, found := g.Cfg.Get(section, key, "")
 			if found {
 				return g.SendJson("config", strVal)
-			} else {
-				return NotFound("No such key in section")
 			}
-		} else {
-			sectionKeys := g.Cfg.SectionKeys(section)
-			sectionMap := make(map[string]string)
-			for _, key := range sectionKeys {
-				strVal, _ := g.Cfg.Get(section, key, "")
-				sectionMap[key] = strVal
-			}
-			return g.SendJson("config", sectionMap)
+			return NotFound("No such key in section")
 		}
-	} else {
-		configMap := g.Cfg.AsMap()
-		return g.SendJson("config", configMap)
+
+		sectionKeys := g.Cfg.SectionKeys(section)
+		sectionMap := make(map[string]string)
+		for _, key := range sectionKeys {
+			strVal, _ := g.Cfg.Get(section, key, "")
+			sectionMap[key] = strVal
+		}
+		return g.SendJson("config", sectionMap)
 	}
-	return nil
+	configMap := g.Cfg.AsMap()
+	return g.SendJson("config", configMap)
 }
 
 func handleMem(g *Req) error {
