@@ -271,7 +271,7 @@ func (c *Client) SetCfg(section, key, val string) (resptxt string, err error) {
 		return "", err
 	}
 	if response.StatusCode != 200 {
-		return "", fmt.Errorf("ERROR. Status:", response.StatusCode)
+		return "", fmt.Errorf("ERROR. Status: %d", response.StatusCode)
 	}
 	return string(contents), nil
 }
