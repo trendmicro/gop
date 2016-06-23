@@ -315,7 +315,7 @@ func (a *App) requestMaker() {
 		case doneReq := <-a.doneReq:
 			_, found := openReqs[doneReq.id]
 			if !found {
-				a.Error("BUG! Unknown request id [%d] being retired")
+				a.Errorf("BUG! Unknown request id [%d] being retired", doneReq.id)
 			} else {
 				doneReq.finished(appStats)
 				appStats.currentReqs--
