@@ -77,9 +77,9 @@ LOOP:
 					// as an indication that we need to shut down (in
 					// the future we can tweak this list)
 
-					n.Error("Caught signal: %s - killing process group", sig)
+					n.Errorf("Caught signal: %s - killing process group", sig)
 					syscall.Kill(-n.pgid, syscall.SIGTERM)
-					n.Error("Exiting on signal %s", sig)
+					n.Errorf("Exiting on signal %s", sig)
 					os.Exit(0)
 				}
 			}
@@ -102,19 +102,19 @@ func (n *nelly) checkForDeath() bool {
 	rusage := syscall.Rusage{}
 	zpid, err := syscall.Wait4(-1, &w, syscall.WNOHANG, &rusage)
 	if err != nil {
-		n.Error("Error in Wait4: %s", err.Error())
+		n.Errorf("Error in Wait4: %s", err.Error())
 	}
 	if zpid > 0 {
-		n.Error("Ate a tasty zombie (pid was %d, status was %d)", zpid, w.ExitStatus())
+		n.Errorf("Ate a tasty zombie (pid was %d, status was %d)", zpid, w.ExitStatus())
 	}
 
 	if n.processGroupIsEmpty() {
 		n.startGracePings--
 		if n.startGracePings <= 0 {
-			n.Error("Process group [%d] empty - exiting and hoping init sorts it all out", n.pgid)
+			n.Errorf("Process group [%d] empty - exiting and hoping init sorts it all out", n.pgid)
 			return true
 		} else {
-			n.Error("Process group [%d] empty - grace pings left [%d]", n.pgid, n.startGracePings)
+			n.Errorf("Process group [%d] empty - grace pings left [%d]", n.pgid, n.startGracePings)
 		}
 	} else {
 		// We've had a good ping, no more Mr Nice Guy
@@ -127,7 +127,7 @@ func (n *nelly) Finish() {
 	if n.ownThePidFile {
 		err := os.Remove(n.pidFileName())
 		if err != nil {
-			n.Error("Failed to remove pidfile [%s]: %s", n.pidFileName(), err.Error())
+			n.Errorf("Failed to remove pidfile [%s]: %s", n.pidFileName(), err.Error())
 		}
 	}
 	n.App.Finish()
@@ -142,7 +142,7 @@ func (n *nelly) setupSignals() {
 func (n *nelly) processGroupIsEmpty() bool {
 	err := syscall.Kill(-n.pgid, syscall.Signal(0x00))
 	if err != nil {
-		n.Error("Kill error: %s\n", err.Error())
+		n.Errorf("Kill error: %s\n", err.Error())
 	}
 	return err != nil
 }
@@ -207,17 +207,17 @@ func (n *nelly) startChild() *exec.Cmd {
 func (n *nelly) okToStart() bool {
 	_, err := os.Stat(n.pidFileDir())
 	if err != nil {
-		n.Error("Can't stat pid dir [%s]: %s", n.pidFileDir(), err.Error())
+		n.Errorf("Can't stat pid dir [%s]: %s", n.pidFileDir(), err.Error())
 		return false
 	}
 
 	pid, exists := n.readPidFile()
 	if exists {
-		n.Error("Pid file exists - claims pid %d owns %s:%s", pid, n.ProjectName, n.AppName)
+		n.Errorf("Pid file exists - claims pid %d owns %s:%s", pid, n.ProjectName, n.AppName)
 		// Is the pid still running?
 		err := syscall.Kill(pid, syscall.Signal(0x00))
 		if err == nil {
-			n.Error("Pid %d is running - we can't start up")
+			n.Errorf("Pid %d is running - we can't start up", pid)
 			return false
 		}
 		// TODO: we'd like to discriminate between ESRCH and EPERM back from Kill,
@@ -225,15 +225,15 @@ func (n *nelly) okToStart() bool {
 		// be used to...you know...find a process.
 		// https://codereview.appspot.com/7392048/#msg18
 		if err == nil {
-			n.Error("Pid %d exists - so we have to fail startup")
+			n.Errorf("Pid %d exists - so we have to fail startup", pid)
 			return false
 		}
-		n.Error("Error [%s] contacting pid %d - assume it's not there and claim pidfile", err.Error(), pid)
+		n.Errorf("Error [%s] contacting pid %d - assume it's not there and claim pidfile", err.Error(), pid)
 		// Pid file exists but proc doesn't. Continue and overwrite it with our own pid
 	}
 	err = n.writePidFile()
 	if err != nil {
-		n.Error("Can't write pid file %s: %s", n.pidFileName(), err.Error())
+		n.Errorf("Can't write pid file %s: %s", n.pidFileName(), err.Error())
 		return false
 	}
 	return true
@@ -242,7 +242,7 @@ func (n *nelly) okToStart() bool {
 func (n *nelly) writePidFile() error {
 	f, err := os.OpenFile(n.pidFileName(), os.O_CREATE|os.O_RDWR, os.FileMode(0644))
 	if err != nil {
-		n.Error("Failed to open pid file [%s] for writing: %s", n.pidFileName(), err.Error())
+		n.Errorf("Failed to open pid file [%s] for writing: %s", n.pidFileName(), err.Error())
 		return err
 	}
 	defer f.Close()
