@@ -126,7 +126,6 @@ func handleMem(g *Req) error {
 			msg += info + "\n"
 		}
 		return g.SendText([]byte(msg))
-		return nil
 	}
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
