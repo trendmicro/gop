@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/segmentio/go-loggly"
+	"github.com/cocoonlife/go-loggly"
 )
 
 // A timber.LogWriter for the loggly service.
@@ -36,4 +36,5 @@ func (w *LogglyWriter) LogWrite(msg string) {
 // Close the write. Satifies the timber.LogWriter interface.
 func (w *LogglyWriter) Close() {
 	w.c.Flush()
+	close(w.c.ShutdownChan)
 }
