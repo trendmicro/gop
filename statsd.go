@@ -59,6 +59,10 @@ func (s *StatsdClient) connect() bool {
 		s.reconTimer = nil
 	}
 	var err error
+
+	if s.client != nil {
+		s.client.Close()
+	}
 	s.client, err = statsd.New(s.hostPort, s.prefix)
 	if err != nil {
 		s.Error("STATSD Failed to create client (stats will noop): " + err.Error())
