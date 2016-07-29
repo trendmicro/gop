@@ -58,13 +58,13 @@ func (a *App) makeConfigLogger() (timber.ConfigLogger, bool) {
 		defaultLogFname := a.logDir + "/" + a.AppName + ".log"
 		logFname, _ := a.Cfg.Get("gop", "log_file", defaultLogFname)
 
-		newWriter, err := timber.NewFileWriter(logFname)
 		_, dirExistsErr := os.Stat(a.logDir)
 		if dirExistsErr != nil && os.IsNotExist(dirExistsErr) {
 			// Carry on with stdout logging, but remember to mention it
 			fellbackToCWD = true
 			a.logDir = "."
 		} else {
+			newWriter, err := timber.NewFileWriter(logFname)
 			if err != nil {
 				panic(fmt.Sprintf("Can't open log file: %s", err))
 			}
