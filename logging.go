@@ -153,21 +153,6 @@ func (a *App) configureLogging() {
 		}
 	}
 
-	// logentries logging service
-	if token, ok := a.Cfg.Get("gop", "log_logentries_token", ""); ok {
-		if le, err := NewLogEntriesWriter(token); err == nil {
-			logger := timber.ConfigLogger{
-				LogWriter: le,
-				Level:     timber.DEBUG,
-				Formatter: a.logFormatterFactory.Create(),
-			}
-			a.setLogger("logentries", logger)
-			l.Infof("Added Logentries logger")
-		} else {
-			l.Errorf("Error creating logentries client: %s", err.Error())
-		}
-	}
-
 	// Loggly logging service
 	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
 		tags := []string{a.ProjectName, a.AppName, a.Hostname()}
