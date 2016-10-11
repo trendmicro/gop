@@ -15,7 +15,7 @@ type LogglyWriter struct {
 	c *loggly.Client
 }
 
-// NewLogEntriesWriter creates a new writer for sending logging to logentries.
+// NewLogEntriesWriter creates a new writer for sending logging to Loggly.
 func NewLogglyWriter(token string, tags ...string) (*LogglyWriter, error) {
 	return &LogglyWriter{c: loggly.New(token, tags...)}, nil
 }
