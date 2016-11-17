@@ -34,7 +34,7 @@ func (a *App) configureStatsd(cfg *Config) {
 	prefix = append(prefix, a.ProjectName, a.AppName, hostname)
 	statsdPrefix := strings.Join(prefix, ".")
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
-	recon, _ := a.Cfg.GetDuration("gop", "statsd_reconnect_every", time.Minute*1)
+	recon, _ := a.Cfg.GetDuration("gop", "statsd_reconnect_every", time.Minute*10)
 	// TODO: Need to protect a.Stats from race
 	a.Stats = &StatsdClient{
 		App:        a,
@@ -61,6 +61,8 @@ func (s *StatsdClient) connect() bool {
 	var err error
 
 	if s.client != nil {
+		// TODO we could be closing a client that is in use by one of
+		// the methods below. This code needs rewriting.
 		s.client.Close()
 	}
 	s.client, err = statsd.New(s.hostPort, s.prefix)
