@@ -349,6 +349,11 @@ func (a *App) GetStats() AppStats {
 	return appStats
 }
 
+// Uptime returns time instant the app was initialized.
+func (a *App) StartTime() time.Time {
+	return a.GetStats().startTime
+}
+
 // Ask requestMaker for a request
 func (a *App) getReq(r *http.Request, websocket bool) *Req {
 	reply := make(chan *Req)
