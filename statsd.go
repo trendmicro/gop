@@ -35,8 +35,7 @@ func (a *App) configureStatsd(cfg *Config) {
 	statsdPrefix := strings.Join(prefix, ".")
 	rate, _ := a.Cfg.GetFloat32("gop", "statsd_rate", 1.0)
 	recon, _ := a.Cfg.GetDuration("gop", "statsd_reconnect_every", time.Minute*10)
-	// TODO: Need to protect a.Stats from race
-	a.Stats = &StatsdClient{
+	s := &StatsdClient{
 		App:        a,
 		client:     nil,
 		hostPort:   statsdHostport,
@@ -44,8 +43,10 @@ func (a *App) configureStatsd(cfg *Config) {
 		rate:       rate,
 		reconEvery: recon,
 	}
+	s.connect()
+	// TODO: Need to protect a.Stats from race
+	a.Stats = s
 	a.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", a.Stats.hostPort, a.Stats.prefix, a.Stats.rate)
-	a.Stats.connect()
 }
 
 // connect makes a 'connection' to the statsd host (doing a DNS lookup),
