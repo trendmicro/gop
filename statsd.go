@@ -45,6 +45,9 @@ func (a *App) configureStatsd(cfg *Config) {
 	}
 	s.connect()
 	// TODO: Need to protect a.Stats from race
+	if a.Stats != nil {
+		a.Stats.release()
+	}
 	a.Stats = s
 	a.Infof("STATSD sending to [%s] with prefix [%s] at rate [%f]", a.Stats.hostPort, a.Stats.prefix, a.Stats.rate)
 }
@@ -77,6 +80,18 @@ func (s *StatsdClient) connect() bool {
 		s.reconTimer = time.AfterFunc(s.reconEvery, func() { s.connect() })
 	}
 	return true
+}
+
+// release the resources associated with this StatsdClient
+func (s *StatsdClient) release() {
+	s.Lock()
+	defer s.Unlock()
+	if s.client != nil {
+		s.client.Close()
+	}
+	if s.reconTimer != nil && !s.reconTimer.Stop() {
+		<-s.reconTimer.C
+	}
 }
 
 func (s *StatsdClient) c() statsd.Statter {
