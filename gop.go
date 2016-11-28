@@ -76,6 +76,7 @@ type App struct {
 	logDir                   string
 	loggerMap                map[string]int
 	logFormatterFactory      LogFormatterFactory
+	configHandlersEnabled    bool
 }
 
 // The function signature your http handlers need.

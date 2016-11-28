@@ -231,7 +231,7 @@ func (a *App) registerGopHandlers() {
 }
 
 func (a *App) maybeRegisterPProfHandlers() {
-	if enableProfiling, _ := a.Cfg.GetBool("gop", "enable_profiling_urls", false); enableProfiling {
+	if enableProfiling, _ := a.Cfg.GetBool("gop", "enable_profiling_urls", false); enableProfiling && !a.configHandlersEnabled {
 		a.HandleFunc("/debug/pprof/cmdline", func(g *Req) error {
 			pprof.Cmdline(g.W, g.R)
 			return nil
@@ -253,5 +253,6 @@ func (a *App) maybeRegisterPProfHandlers() {
 			h.ServeHTTP(g.W, g.R)
 			return nil
 		})
+		a.configHandlersEnabled = true
 	}
 }
