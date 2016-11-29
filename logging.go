@@ -154,12 +154,17 @@ func (a *App) configureLogging() {
 	}
 
 	// Loggly logging service
-	if token, ok := a.Cfg.Get("gop", "log_loggly_token", ""); ok {
+	token, haveToken := a.Cfg.Get("gop", "log_loggly_token", "")
+	if haveToken {
+		level, _ := a.Cfg.Get("gop", "log_level", "info")
+		// ToUpper used because that's how timber expects the levels
+		// to be written
+		level = strings.ToUpper(level)
 		tags := []string{a.ProjectName, a.AppName, a.Hostname()}
 		if lw, err := NewLogglyWriter(token, tags...); err == nil {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
-				Level:     timber.DEBUG,
+				Level:     timber.GetLevel(level),
 				Formatter: a.logFormatterFactory.Create(),
 			}
 			a.setLogger("loggly", logger)
