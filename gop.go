@@ -28,7 +28,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -250,16 +249,6 @@ func (a *App) Finish() {
 // // Can't log at this stage :-/
 // //    a.Info("Running as user %s (%d)", desiredUserName, desiredUser.Uid)
 // }
-
-func (a *App) setProcessGroupForNelly() {
-	// Nelly knows our pid and will check that there is always at
-	// least one process in the process group with the same id as our pid
-	mypid := syscall.Getpid()
-	err := syscall.Setpgid(mypid, mypid)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to setpgid]: %d - %d - %s\n", mypid, mypid, err.Error()))
-	}
-}
 
 // Hands out 'request' objects
 func (a *App) requestMaker() {
@@ -772,9 +761,6 @@ func (a *App) HandleMap(hm map[string]func(g *Req) error) {
 }
 
 func (a *App) Run() {
-	a.setProcessGroupForNelly()
-
-	a.goAgainSetup()
 
 	a.registerGopHandlers()
 
@@ -785,15 +771,12 @@ func (a *App) Run() {
 	listenAddr, _ := a.Cfg.Get("gop", "listen_addr", ":http")
 	listenNet, _ := a.Cfg.Get("gop", "listen_net", "tcp")
 	gracefulRestart, _ := a.Cfg.GetBool("gop", "graceful_restart", true)
-	if gracefulRestart {
-		a.goAgainListenAndServe(listenNet, listenAddr)
-	} else {
-		listener, err := net.Listen(listenNet, listenAddr)
-		if err != nil {
-			a.Fatalf("Can't listen on [%s:%s]: %s", listenNet, listenAddr, err.Error())
-		}
-		a.Serve(listener)
+
+	listener, err := net.Listen(listenNet, listenAddr)
+	if err != nil {
+		a.Fatalf("Can't listen on [%s:%s]: %s", listenNet, listenAddr, err.Error())
 	}
+	a.Serve(listener)
 }
 
 func (a *App) Serve(l net.Listener) {
