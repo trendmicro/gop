@@ -64,12 +64,13 @@ type App struct {
 	ProjectName   string
 	GorillaRouter *mux.Router
 	listener      net.Listener
-	wantReq       chan *wantReq
-	doneReq       chan *Req
-	getReqs       chan chan *Req
-	getStats      chan chan AppStats
+	doingShutdown bool
 
-	doingGraceful            bool
+	wantReq  chan *wantReq
+	doneReq  chan *Req
+	getReqs  chan chan *Req
+	getStats chan chan AppStats
+
 	accessLog                *os.File
 	suppressedAccessLogLines int
 	logDir                   string
@@ -373,13 +374,6 @@ func (g *Req) finished(appStats AppStats) {
 		g.Debug("Request took %s", reqDuration)
 	}
 
-	// Tidy up request finalistion (requestMaker, req.finish() method, app.requestFinished())
-	restartReqs, _ := g.Cfg.GetInt("gop", "max_requests", 0)
-	if restartReqs > 0 && appStats.totalReqs > restartReqs {
-		g.Errorf("Graceful restart after max_requests: %d", restartReqs)
-		g.app.StartGracefulRestart("Max requests reached")
-	}
-
 	gcEveryReqs, _ := g.Cfg.GetInt("gop", "gc_requests", 0)
 	if gcEveryReqs > 0 && appStats.totalReqs%gcEveryReqs == 0 {
 		g.Info("Forcing GC after %d reqs", appStats.totalReqs)
@@ -519,27 +513,27 @@ func (a *App) watchdog() {
 		}
 
 		if sysMemBytesLimit > 0 && sysMemBytes >= sysMemBytesLimit {
-			a.Errorf("SYS MEM LIMIT REACHED [%d >= %d] - starting graceful restart", sysMemBytes, sysMemBytesLimit)
-			a.StartGracefulRestart("Sys Memory limit reached")
+			a.Errorf("SYS MEM LIMIT REACHED [%d >= %d] - exiting", sysMemBytes, sysMemBytesLimit)
+			a.Shutdown("Sys Memory limit reached")
 		}
 		if allocMemBytesLimit > 0 && allocMemBytes >= allocMemBytesLimit {
-			a.Errorf("ALLOC MEM LIMIT REACHED [%d >= %d] - starting graceful restart", allocMemBytes, allocMemBytesLimit)
-			a.StartGracefulRestart("Alloc Memory limit reached")
+			a.Errorf("ALLOC MEM LIMIT REACHED [%d >= %d] - exiting", allocMemBytes, allocMemBytesLimit)
+			a.Shutdown("Alloc Memory limit reached")
 		}
 		if numFDsLimit > 0 && numFDs >= numFDsLimit {
-			a.Errorf("NUM FDS LIMIT REACHED [%d >= %d] - starting graceful restart", numFDs, numFDsLimit)
-			a.StartGracefulRestart("Number of fds limit reached")
+			a.Errorf("NUM FDS LIMIT REACHED [%d >= %d] - exiting", numFDs, numFDsLimit)
+			a.Shutdown("Number of fds limit reached")
 		}
 		if numGorosLimit > 0 && numGoros >= numGorosLimit {
-			a.Errorf("NUM GOROS LIMIT REACHED [%d >= %d] - starting graceful restart", numGoros, numGorosLimit)
-			a.StartGracefulRestart("Number of goros limit reached")
+			a.Errorf("NUM GOROS LIMIT REACHED [%d >= %d] - exiting", numGoros, numGorosLimit)
+			a.Shutdown("Number of goros limit reached")
 		}
 
-		restartAfterSecs, _ := a.Cfg.GetFloat32("gop", "restart_after_secs", 0)
+		exitAfterSecs, _ := a.Cfg.GetFloat32("gop", "exit_after_secs", 0)
 		appRunTime := time.Since(appStats.startTime).Seconds()
-		if restartAfterSecs > 0 && appRunTime > float64(restartAfterSecs) {
-			a.Errorf("TIME LIMIT REACHED [%f >= %f] - starting graceful restart", appRunTime, restartAfterSecs)
-			a.StartGracefulRestart("Run time limit reached")
+		if exitAfterSecs > 0 && appRunTime > float64(exitAfterSecs) {
+			a.Errorf("TIME LIMIT REACHED [%f >= %f] - exiting", appRunTime, exitAfterSecs)
+			a.Shutdown("Run time limit reached")
 		}
 		firstLoop = false
 		<-ticker
@@ -770,7 +764,6 @@ func (a *App) Run() {
 
 	listenAddr, _ := a.Cfg.Get("gop", "listen_addr", ":http")
 	listenNet, _ := a.Cfg.Get("gop", "listen_net", "tcp")
-	gracefulRestart, _ := a.Cfg.GetBool("gop", "graceful_restart", true)
 
 	listener, err := net.Listen(listenNet, listenAddr)
 	if err != nil {
@@ -780,7 +773,22 @@ func (a *App) Run() {
 }
 
 func (a *App) Serve(l net.Listener) {
-	http.Serve(l, a.GorillaRouter)
+	a.listener = l
+	http.Serve(a.listener, a.GorillaRouter)
+}
+
+func (a *App) Shutdown(reason string) {
+	a.Infof("Shutting down: %s", reason)
+	// Stop listening for new requests
+	if a.listener != nil {
+		a.listener.Close()
+		a.Infof("Listener stopped")
+	}
+	// TODO: add back grace period for requests to exit
+	a.Infof("Time to die")
+	a.Finish()
+	// TODO: allow control of exit code by caller
+	os.Exit(0)
 }
 
 func getMemInfo() (int64, int64) {
