@@ -755,13 +755,17 @@ func (a *App) HandleMap(hm map[string]func(g *Req) error) {
 }
 
 func (a *App) Run() {
+	a.Start()
+	a.ConfigServe()
+}
 
+func (a *App) Start() {
 	a.registerGopHandlers()
-
 	go a.watchdog()
-
 	go a.requestMaker()
+}
 
+func (a *App) ConfigServe() {
 	listenAddr, _ := a.Cfg.Get("gop", "listen_addr", ":http")
 	listenNet, _ := a.Cfg.Get("gop", "listen_net", "tcp")
 
