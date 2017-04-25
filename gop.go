@@ -647,6 +647,9 @@ func (a *App) WrapHandler(h HandlerFunc, requiredParams ...string) http.HandlerF
 var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams ...string) http.HandlerFunc {
