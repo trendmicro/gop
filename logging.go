@@ -223,6 +223,11 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 	if uaLine == "" {
 		uaLine = "-"
 	}
+	var size, code int
+	if req.W != nil {
+		code = req.W.code
+		size = req.W.size
+	}
 	hostname := a.Hostname()
 	logLine := fmt.Sprintf("%s %.3f %s %s %s %s %s %d %d %s %s\n",
 		hostname,
@@ -233,8 +238,8 @@ func (a *App) WriteAccessLog(req *Req, dur time.Duration) {
 		//		req.startTime.Format("[02/Jan/2006:15:04:05 -0700]"),
 		req.startTime.Format("["+time.RFC3339+"]"),
 		quote(reqFirstLine),
-		req.W.code,
-		req.W.size,
+		code,
+		size,
 		quote(referrerLine),
 		quote(uaLine))
 	_, err := req.app.accessLog.WriteString(logLine)
