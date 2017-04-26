@@ -364,7 +364,11 @@ func (g *Req) finished(appStats AppStats) {
 		return
 	}
 
-	codeStatsKey := fmt.Sprintf("http_status.%d", g.W.code)
+	var code int
+	if g.W != nil {
+		code = g.W.code
+	}
+	codeStatsKey := fmt.Sprintf("http_status.%d", code)
 	g.app.Stats.Inc(codeStatsKey, 1)
 
 	slowReqSecs, _ := g.Cfg.GetFloat32("gop", "slow_req_secs", 10)
@@ -620,7 +624,7 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 		g.Error("PANIC: " + string(getBackTrace(showAllInBacktrace)))
 	}
 
-	if g.W.HasWritten() {
+	if g.W != nil && g.W.HasWritten() {
 		g.Errorf("PANIC after handler had written data: %s", httpErr.Body)
 	} else {
 		httpErr.Write(g.W)
