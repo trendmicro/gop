@@ -709,7 +709,7 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 					Body: "Internal error: " + err.Error(),
 				}
 			}
-			if gopRequest.W.HasWritten() {
+			if gopRequest.W != nil && gopRequest.W.HasWritten() {
 				// Ah. We have an error we'd like to send. But it's too late.
 				// Bad handler, no biscuit.
 				a.Errorf("Handler returned http error after writing data [%s] - discarding error", httpErr)
