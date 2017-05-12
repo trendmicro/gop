@@ -621,7 +621,7 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 	}
 
 	if showInLog {
-		g.Error("PANIC: " + string(getBackTrace(showAllInBacktrace)))
+		g.Error("PANIC: " + recoveredMessage + string(getBackTrace(showAllInBacktrace)))
 	}
 
 	if g.W != nil && g.W.HasWritten() {
