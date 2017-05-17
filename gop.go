@@ -13,6 +13,7 @@
 package gop
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 
@@ -572,6 +573,10 @@ func (w *responseWriter) WriteHeader(code int) {
 
 func (w *responseWriter) HasWritten() bool {
 	return w.size > 0
+}
+
+func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.ResponseWriter.(http.Hijacker).Hijack()
 }
 
 func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, panicHTTPMessage string) {
