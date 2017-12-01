@@ -20,29 +20,17 @@ func gopHandler(g *Req) error {
 	vars := mux.Vars(g.R)
 	switch vars["action"] {
 	case "status":
-		{
-			return handleStatus(g)
-		}
+		return handleStatus(g)
 	case "stack":
-		{
-			return handleStack(g)
-		}
+		return handleStack(g)
 	case "mem":
-		{
-			return handleMem(g)
-		}
+		return handleMem(g)
 	case "test":
-		{
-			return handleTest(g)
-		}
+		return handleTest(g)
 	case "config":
-		{
-			return handleConfig(g)
-		}
+		return handleConfig(g)
 	default:
-		{
-			return ErrNotFound
-		}
+		return ErrNotFound
 	}
 }
 
