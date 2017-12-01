@@ -3,6 +3,7 @@ package gop
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/http/pprof"
 	"os"
 	"runtime"
@@ -16,10 +17,6 @@ import (
 var decoder = schema.NewDecoder() // Single-instance so struct info cached
 
 func gopHandler(g *Req) error {
-	enabled, _ := g.Cfg.GetBool("gop", "enable_gop_urls", false)
-	if !enabled {
-		return NotFound("Not enabled")
-	}
 	vars := mux.Vars(g.R)
 	switch vars["action"] {
 	case "status":
@@ -222,9 +219,9 @@ func handleTest(g *Req) error {
 }
 
 func (a *App) registerGopHandlers() {
-	a.HandleFunc("/gop/{action}", gopHandler)
-	a.HandleFunc("/gop/config/{section}", handleConfig)
-	a.HandleFunc("/gop/config/{section}/{key}", handleConfig)
+	a.HandleFunc("/gop/{action}", accessWrapper(gopHandler))
+	a.HandleFunc("/gop/config/{section}", accessWrapper(handleConfig))
+	a.HandleFunc("/gop/config/{section}/{key}", accessWrapper(handleConfig))
 
 	a.maybeRegisterPProfHandlers()
 	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.maybeRegisterPProfHandlers() })
@@ -232,27 +229,51 @@ func (a *App) registerGopHandlers() {
 
 func (a *App) maybeRegisterPProfHandlers() {
 	if enableProfiling, _ := a.Cfg.GetBool("gop", "enable_profiling_urls", false); enableProfiling && !a.configHandlersEnabled {
-		a.HandleFunc("/debug/pprof/cmdline", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/cmdline", accessWrapper(func(g *Req) error {
 			pprof.Cmdline(g.W, g.R)
 			return nil
-		})
+		}))
 
-		a.HandleFunc("/debug/pprof/symbol", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/symbol", accessWrapper(func(g *Req) error {
 			pprof.Symbol(g.W, g.R)
 			return nil
-		})
+		}))
 
-		a.HandleFunc("/debug/pprof/profile", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/profile", accessWrapper(func(g *Req) error {
 			pprof.Profile(g.W, g.R)
 			return nil
-		})
+		}))
 
-		a.HandleFunc("/debug/pprof/{profile_name}", func(g *Req) error {
+		a.HandleFunc("/debug/pprof/{profile_name}", accessWrapper(func(g *Req) error {
 			vars := mux.Vars(g.R)
 			h := pprof.Handler(vars["profile_name"])
 			h.ServeHTTP(g.W, g.R)
 			return nil
-		})
+		}))
 		a.configHandlersEnabled = true
+	}
+}
+
+func accessWrapper(handler HandlerFunc) HandlerFunc {
+	return func(g *Req) error {
+		// We require that:
+		// (a) enable_gop_urls be set in the config
+		enabled, _ := g.Cfg.GetBool("gop", "enable_gop_urls", false)
+		if !enabled {
+			return NotFound("Not enabled")
+		}
+		// (b) optionally we can set a ?foo=bar requirement on the url
+		tokenKey, _ := g.Cfg.Get("gop", "handler_access_key", "")
+		tokenVal, _ := g.Cfg.Get("gop", "handler_access_value", "")
+		if tokenKey != "" && tokenVal != "" {
+			params := g.Params()
+			val, ok := params[tokenKey]
+			if !ok || val != tokenVal {
+				return HTTPError{
+					Code: http.StatusForbidden,
+				}
+			}
+		}
+		return handler(g)
 	}
 }
