@@ -758,14 +758,7 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, isWebsocket bool, requiredParam
 
 		if err != nil {
 			if gopRequest.WS != nil {
-				wsCloseMsg, ok := err.(WebSocketCloseMessage)
-				if !ok {
-					wsCloseMsg = WebSocketCloseMessage{
-						Code: websocket.CloseAbnormalClosure,
-						Body: "",
-					}
-				}
-				gopRequest.webSocketClose(wsCloseMsg.Code, wsCloseMsg.Body)
+				gopRequest.webSocketError(err)
 			} else {
 				httpErr, ok := err.(HTTPError)
 				if !ok {
@@ -911,4 +904,34 @@ func (g *Req) webSocketClose(code int, text string) {
 		g.Debug("close websocket timeout")
 		g.WS.Close()
 	}
+}
+
+func (g *Req) webSocketError(err error) {
+	var closeMessage WebSocketCloseMessage
+	switch t := err.(type) {
+	case WebSocketCloseMessage:
+		closeMessage = t
+	case HTTPError:
+		closeMessage = websocketCloseMessageFromHTTPError(t)
+	default:
+		closeMessage = CloseAbnormalClosure
+	}
+
+	g.webSocketClose(closeMessage.Code, closeMessage.Body)
+}
+
+func websocketCloseMessageFromHTTPError(err HTTPError) WebSocketCloseMessage {
+	var closeCode int
+	switch err.Code / 100 {
+	case 2:
+		closeCode = websocket.CloseNormalClosure
+	case 4:
+		closeCode = websocket.ClosePolicyViolation
+	case 5:
+		closeCode = websocket.CloseInternalServerErr
+	default:
+		closeCode = websocket.CloseAbnormalClosure
+	}
+
+	return WebSocketCloseMessage{Code: closeCode, Body: err.Body}
 }
