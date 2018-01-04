@@ -95,9 +95,10 @@ type Req struct {
 	RealRemoteIP string
 	IsHTTPS      bool
 	// Only one of these is valid to use...
-	W         *responseWriter
-	WS        *websocket.Conn
-	CanBeSlow bool //set this to true to suppress the "Slow Request" warning
+	W           *responseWriter
+	WS          *websocket.Conn
+	WsCloseChan chan struct{}
+	CanBeSlow   bool //set this to true to suppress the "Slow Request" warning
 }
 
 // Return one of these from a handler to control the error response
@@ -111,6 +112,7 @@ type HTTPError struct {
 func (h HTTPError) Error() string {
 	return fmt.Sprintf("HTTP Error [%d] - %s", h.Code, h.Body)
 }
+
 func (h HTTPError) Write(w *responseWriter) {
 	w.WriteHeader(h.Code)
 	w.Write([]byte(h.Body))
@@ -141,6 +143,25 @@ func ServerError(body string) error {
 	err := ErrServerError
 	err.Body = body
 	return error(err)
+}
+
+type WebSocketCloseMessage struct {
+	Code int
+	Body string
+}
+
+func (h WebSocketCloseMessage) Error() string {
+	return fmt.Sprintf("%d %s", h.Code, h.Body)
+}
+
+var CloseAbnormalClosure = WebSocketCloseMessage{Code: websocket.CloseAbnormalClosure}
+var ClosePolicyViolation = WebSocketCloseMessage{Code: websocket.ClosePolicyViolation}
+var CloseGoingAway = WebSocketCloseMessage{Code: websocket.CloseGoingAway}
+
+func PolicyViolation(body string) error {
+	err := ClosePolicyViolation
+	err.Body = body
+	return err
 }
 
 // Used for RPC to get a new request
@@ -587,16 +608,26 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 	}
 
 	// Build an error to write
-	httpErr := HTTPError{
-		Code: http.StatusInternalServerError,
+	var errBody string
+	var errCode int
+	if g.WS != nil {
+		errCode = websocket.CloseAbnormalClosure
+	} else {
+		errCode = http.StatusInternalServerError
 	}
+
 	sawHTTPErrorPanic := false
 
 	// If we can get a string out of the recovered data, do so
 	var recoveredMessage string
 	switch r := r.(type) {
+	case WebSocketCloseMessage:
+		errCode = r.Code
+		errBody = r.Body
+		sawHTTPErrorPanic = true
 	case HTTPError:
-		httpErr = r
+		errCode = r.Code
+		errBody = r.Body
 		sawHTTPErrorPanic = true
 	case error:
 		recoveredMessage = r.Error()
@@ -610,9 +641,9 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 
 	// Use custom panic message if we have one (and no panic'd HTTPError)
 	if !sawHTTPErrorPanic {
-		httpErr.Body = panicHTTPMessage
-		if httpErr.Body == "" {
-			httpErr.Body = "PANIC: " + recoveredMessage
+		errBody = panicHTTPMessage
+		if errBody == "" {
+			errBody = "PANIC: " + recoveredMessage
 		}
 	}
 
@@ -620,7 +651,7 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 		g.Error("PANIC - sending panic'd error to client")
 	} else if showInResponse {
 		g.Error("PANIC - sending backtrace to client")
-		httpErr.Body += "\n\n" + string(getBackTrace(showAllInBacktrace))
+		errBody += "\n\n" + string(getBackTrace(showAllInBacktrace))
 	} else {
 		g.Error("PANIC - sending info to client")
 	}
@@ -629,9 +660,15 @@ func dealWithPanic(g *Req, showInResponse, showInLog, showAllInBacktrace bool, p
 		g.Error("PANIC: " + recoveredMessage + string(getBackTrace(showAllInBacktrace)))
 	}
 
-	if g.W != nil && g.W.HasWritten() {
-		g.Errorf("PANIC after handler had written data: %s", httpErr.Body)
+	if g.WS != nil {
+		g.webSocketClose(errCode, errBody)
+	} else if g.W != nil && g.W.HasWritten() {
+		g.Errorf("PANIC after handler had written data: %s", errBody)
 	} else {
+		httpErr := HTTPError{
+			Code: errCode,
+			Body: errBody,
+		}
 		httpErr.Write(g.W)
 	}
 }
@@ -661,7 +698,7 @@ var wsUpgrader = websocket.Upgrader{
 	},
 }
 
-func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams ...string) http.HandlerFunc {
+func (a *App) wrapHandlerInternal(h HandlerFunc, isWebsocket bool, requiredParams ...string) http.HandlerFunc {
 	panicHTTPMessage, _ := a.Cfg.Get("gop", "panic_http_message", "")
 	showInLog, _ := a.Cfg.GetBool("gop", "panic_backtrace_to_log", false)
 	showInResponse, _ := a.Cfg.GetBool("gop", "panic_backtrace_in_response", false)
@@ -669,11 +706,12 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 
 	// Wrap the handler, so we can do before/after logic
 	f := func(w http.ResponseWriter, r *http.Request) {
-		gopRequest := a.getReq(r, websocket)
+		gopRequest := a.getReq(r, isWebsocket)
 		defer func() {
 			a.doneReq <- gopRequest
 		}()
-		if websocket {
+
+		if isWebsocket {
 			ws, err := wsUpgrader.Upgrade(w, r, nil)
 			gopRequest.WS = ws
 			if err != nil {
@@ -682,6 +720,18 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 				http.Error(w, errStr, http.StatusInternalServerError)
 				return
 			}
+
+			gopRequest.WsCloseChan = make(chan struct{})
+			go func() {
+				for {
+					// TODO: expose the reader to the handler
+					if _, _, err := gopRequest.WS.NextReader(); err != nil {
+						gopRequest.WS.Close()
+						close(gopRequest.WsCloseChan)
+						break
+					}
+				}
+			}()
 		} else {
 			gopWriter := responseWriter{code: 200, ResponseWriter: w}
 			gopRequest.W = &gopWriter
@@ -707,19 +757,30 @@ func (a *App) wrapHandlerInternal(h HandlerFunc, websocket bool, requiredParams 
 		}
 
 		if err != nil {
-			httpErr, ok := err.(HTTPError)
-			if !ok {
-				httpErr = HTTPError{
-					Code: http.StatusInternalServerError,
-					Body: "Internal error: " + err.Error(),
+			if gopRequest.WS != nil {
+				wsCloseMsg, ok := err.(WebSocketCloseMessage)
+				if !ok {
+					wsCloseMsg = WebSocketCloseMessage{
+						Code: websocket.CloseAbnormalClosure,
+						Body: "",
+					}
 				}
-			}
-			if gopRequest.W != nil && gopRequest.W.HasWritten() {
-				// Ah. We have an error we'd like to send. But it's too late.
-				// Bad handler, no biscuit.
-				a.Errorf("Handler returned http error after writing data [%s] - discarding error", httpErr)
+				gopRequest.webSocketClose(wsCloseMsg.Code, wsCloseMsg.Body)
 			} else {
-				httpErr.Write(gopRequest.W)
+				httpErr, ok := err.(HTTPError)
+				if !ok {
+					httpErr = HTTPError{
+						Code: http.StatusInternalServerError,
+						Body: "Internal error: " + err.Error(),
+					}
+				}
+				if gopRequest.W != nil && gopRequest.W.HasWritten() {
+					// Ah. We have an error we'd like to send. But it's too late.
+					// Bad handler, no biscuit.
+					a.Errorf("Handler returned http error after writing data [%s] - discarding error", httpErr)
+				} else {
+					httpErr.Write(gopRequest.W)
+				}
 			}
 		}
 	}
@@ -830,4 +891,24 @@ func (g *Req) WebSocketWriteText(buf []byte) error {
 
 func (g *Req) WebSocketWriteBinary(buf []byte) error {
 	return g.WS.WriteMessage(websocket.BinaryMessage, buf)
+}
+
+// webSocketClose initiates closing the websocket connection on
+// the gop request and waits a short time for the WsCloseChan to close
+// before forcefully closing the connection. This doesn't need to be called
+// if the client closed the connection.
+func (g *Req) webSocketClose(code int, text string) {
+	data := websocket.FormatCloseMessage(code, text)
+	if err := g.WS.WriteMessage(websocket.CloseMessage, data); err != nil {
+		g.Errorf("write websocket close message: %v", err)
+		g.WS.Close()
+		return
+	}
+
+	select {
+	case <-g.WsCloseChan:
+	case <-time.After(time.Second):
+		g.Debug("close websocket timeout")
+		g.WS.Close()
+	}
 }
