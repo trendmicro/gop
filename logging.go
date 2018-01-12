@@ -117,7 +117,7 @@ func (a *App) setLogger(name string, logger timber.ConfigLogger) {
 	}
 }
 
-func (a *App) initLogging() {
+func (a *App) initLogging(extraTags ...string) {
 	// *Don't* create a NewTImber here. Logs are only flushed on Close() and if we
 	// have more than one timber, it's easy to only Close() one of them...
 	l := timber.Global
@@ -128,11 +128,11 @@ func (a *App) initLogging() {
 	log.SetFlags(0)
 	log.SetOutput(l)
 
-	a.configureLogging()
+	a.configureLogging(extraTags...)
 	a.Cfg.AddOnChangeCallback(func(cfg *Config) { a.configureLogging() })
 }
 
-func (a *App) configureLogging() {
+func (a *App) configureLogging(extraTags ...string) {
 	l := timber.Global
 
 	configLogger, fellbackToCWD := a.makeConfigLogger()
@@ -161,6 +161,7 @@ func (a *App) configureLogging() {
 		// to be written
 		level = strings.ToUpper(level)
 		tags := []string{a.ProjectName, a.AppName, a.Hostname()}
+		tags = append(tags, extraTags...)
 		if lw, err := NewLogglyWriter(token, tags...); err == nil {
 			logger := timber.ConfigLogger{
 				LogWriter: lw,
