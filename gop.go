@@ -172,26 +172,35 @@ type wantReq struct {
 }
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
-func Init(projectName, appName string) *App {
-	return doInit(projectName, appName, true, &TimberLogFormatterFactory{})
+func Init(projectName, appName, version string) *App {
+	return doInit(projectName, appName, version, true, &TimberLogFormatterFactory{})
 }
 
 // For test code and command line tools
-func InitCmd(projectName, appName string) *App {
-	return doInit(projectName, appName, false, &TimberLogFormatterFactory{})
+func InitCmd(projectName, appName, version string) *App {
+	return doInit(projectName, appName, version, false, &TimberLogFormatterFactory{})
 }
 
 // Set up the application. Reads config. Panic if runtime environment is deficient.
-func InitWithLogFormatter(projectName, appName string, logFormatterFactory LogFormatterFactory) *App {
-	return doInit(projectName, appName, true, logFormatterFactory)
+func InitWithLogFormatter(
+	projectName, appName, version string,
+	logFormatterFactory LogFormatterFactory,
+) *App {
+	return doInit(projectName, appName, version, true, logFormatterFactory)
 }
 
 // For test code and command line tools
-func InitCmdWithLogFormatter(projectName, appName string, logFormatterFactory LogFormatterFactory) *App {
-	return doInit(projectName, appName, false, logFormatterFactory)
+func InitCmdWithLogFormatter(
+	projectName, appName, version string,
+	logFormatterFactory LogFormatterFactory,
+) *App {
+	return doInit(projectName, appName, version, false, logFormatterFactory)
 }
 
-func doInit(projectName, appName string, requireConfig bool, logFormatterFactory LogFormatterFactory) *App {
+func doInit(
+	projectName, appName, version string,
+	requireConfig bool, logFormatterFactory LogFormatterFactory,
+) *App {
 	app := &App{
 		common: common{
 			Decoder: schema.NewDecoder(),
@@ -215,7 +224,11 @@ func doInit(projectName, appName string, requireConfig bool, logFormatterFactory
 	// http://homepage.ntlworld.com/jonathan.deboynepollard/FGA/linux-thread-problems.html
 	//    app.setUserAndGroup()
 
-	app.initLogging()
+	if version != "" {
+		app.initLogging(version)
+	} else {
+		app.initLogging()
+	}
 
 	maxProcs, _ := app.Cfg.GetInt("gop", "maxprocs", 4*runtime.NumCPU())
 	app.Debug("Setting maxprocs to %d", maxProcs)
